@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status Tanque Diesel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #ffffff;
+      color: #000;
+      padding: 20px;
+    }
+    h1 {
+      color: #007e3e !important;
+    }
+    h2 {
+      color: #000;
+    }
+    #top-right-buttons {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 10px;
+      z-index: 999;
+    }
+    .icon-button {
+      background: #e0e0e0;
+      border: none;
+      color: #333;
+      font-size: 1.2em;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background 0.3s;
+    }
+    .card {
+  border-radius: 12px;
+  padding: 20px;
+  width: 220px;
+  text-align: center;
+  color: #fff;
+  background-color: #333;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.card:hover {
+  transform: scale(1.05); /* aumenta 5% ao passar o mouse */
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5); /* sombra mais intensa */
+}
+    .icon-button:hover {
+      background: #ccc;
+    }
+    .pulse-vermelho {
+      animation: piscarVermelho 1s infinite;
+    }
+    @keyframes piscarVermelho {
+      0% { box-shadow: 0 0 5px #ff0000; }
+      50% { box-shadow: 0 0 25px #ff0000; }
+      100% { box-shadow: 0 0 5px #ff0000; }
+    }
+    .container, .maquinas, .injeplast, .geral {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-end;
+    }
+    .tanque-card {
+      width: 120px;
+      height: 220px;
+      border-radius: 12px;
+      position: relative;
+      background-color: #e0e0e0;
+      overflow: hidden;
+      box-shadow: inset 0 0 10px #aaa;
+    }
+    .tanque-nivel {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      transition: height 0.8s ease;
+    }
+    .cheio { background-color: #4CAF50; }
+    .medio { background-color: #FF9800; }
+    .vazio { background-color: #f44336; }
+    .alerta {
+      animation: pulse 1s infinite;
+      border: 2px solid #f44336 !important;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 5px #f44336; }
+      50% { box-shadow: 0 0 20px #f44336; }
+      100% { box-shadow: 0 0 5px #f44336; }
+    }
+    .tanque-label {
+      text-align: center;
+      font-size: 1.3em;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .tanque-status {
+      text-align: center;
+      font-size: 1em;
+      margin-top: 5px;
+      color: #333;
+    }
+    .card {
+      border-radius: 12px;
+      padding: 20px;
+      width: 220px;
+      text-align: center;
+      transition: 0.3s;
+      color: #fff;
+    }
+    .op { background-color: #007e3e; }
+    .man { background-color: #f44336; }
+    .desl { background-color: #FF9800; }
+    .atu { background-color: #2196F3; }
+    h3 {
+      margin: 10px 0 5px;
+      font-size: 1.2em;
+      color: #fff;
+    }
+    p {
+      margin: 5px 0;
+      font-weight: bold;
+    }
+    small {
+      font-size: 0.8em;
+      color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+    <h1 style="margin: 0; color: #00ffc6; font-size: 1.8em;">Painel de Monitoramento</h1>
+    <div>
+      <span id="horaAtual" style="font-size: 1.2em; color: #ccc;"></span>
+      <span id="contadores" style="font-size: 1em; margin-left: 20px; color: #999; padding-right: 60px; margin-right: 100px;"></span>
+    </div>
+  </div>
+
+  <div id="top-right-buttons">
+    <button class="icon-button" onclick="toggleMute()">🔇</button>
+    <button class="icon-button" onclick="toggleFullscreen()">⛶</button>
+  </div>
+
+  <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+  <h2>Status Tanque Diesel</h2>
+  <div class="container">
+    <div onclick="window.location.href='https://script.google.com/macros/s/AKfycbyrJXaPnJK6AIjCMhsFM0biTKU8byzu8ST-jtOObOtpWSIRxcsyPzMzl7VsJeMSuIV5uQ/exec?page=tanque'" style="cursor: pointer;">
+      <div class="tanque-card" id="tanqueCard">
+        <div id="nivel" class="tanque-nivel vazio" style="height: 0;"></div>
+      </div>
+    </div>
+    <div>
+      <div class="tanque-label">Tanque Diesel</div>
+      <div id="status" class="tanque-status">Status: Carregando...</div>
+    </div>
+  </div>
+
+  <h2>Montagem Final</h2>
+  <div class="maquinas" id="montagem">Carregando...</div>
+
+  <h2>Injeção Plástica</h2>
+  <div class="injeplast" id="injeplast">Carregando...</div>
+
+  <h2>Geral</h2>
+  <div class="geral" id="geral">Carregando...</div>
+
+  <script>
+let muted = false;
+
+function toggleMute() {
+  muted = !muted;
+  const btn = document.querySelector('button.icon-button');
+  btn.textContent = muted ? '🔈' : '🔇';
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function removerAcentos(texto) {
+  return texto ? texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+}
+
+function nomePadrao(str) {
+  return removerAcentos(str).replace(/\s+/g, "");
+}
+
+async function atualizarPainel() {
+  atualizarHora();
+  try {
+    const response = await fetch('https://script.google.com/macros/s/AKfycbyrJXaPnJK6AIjCMhsFM0biTKU8byzu8ST-jtOObOtpWSIRxcsyPzMzl7VsJeMSuIV5uQ/exec?func=getData');
+    const data = await response.json();
+
+    const tanque = data.find(x => removerAcentos(x.maquina).includes("tanquediesel"));
+    const nivel = document.getElementById("nivel");
+    const status = document.getElementById("status");
+    const tanqueCard = document.getElementById("tanqueCard");
+
+    if (tanque) {
+      const statusTexto = removerAcentos(tanque.status);
+      status.textContent = "Status: " + tanque.status;
+
+      if (statusTexto.includes("nivel alto")) {
+        nivel.style.height = "98%";
+        nivel.className = "tanque-nivel cheio";
+        tanqueCard.classList.remove("alerta");
+      } else if (statusTexto.includes("nivel baixo")) {
+        nivel.style.height = "89%";
+        nivel.className = "tanque-nivel medio";
+        tanqueCard.classList.remove("alerta");
+      } else if (statusTexto.includes("precisa abastecer")) {
+        nivel.style.height = "20%";
+        nivel.className = "tanque-nivel vazio";
+        tanqueCard.classList.add("alerta");
+      } else {
+        nivel.style.height = "10%";
+        nivel.className = "tanque-nivel vazio";
+        tanqueCard.classList.add("alerta");
+        status.textContent = "Status: Indefinido";
+      }
+    }
+
+    const montagemDiv = document.getElementById("montagem");
+    const injeDiv = document.getElementById("injeplast");
+    const geralDiv = document.getElementById("geral");
+
+    montagemDiv.innerHTML = "";
+    injeDiv.innerHTML = "";
+    geralDiv.innerHTML = "";
+
+    data.forEach(item => {
+      const nomeMaquina = nomePadrao(item.maquina);
+      if (nomeMaquina.includes("tanquediesel")) return;
+
+      let classe = "", icone = "", tempoCritico = false;
+      const statusFormatado = removerAcentos(item.status);
+
+      let atualizado = item.atualizado.includes(":")
+        ? new Date(item.atualizado.split("/").reverse().join(" "))
+        : new Date(item.atualizado.split("/").reverse().join(" ") + ' 00:00');
+      const agora = new Date();
+      const minutosPassados = (agora - atualizado) / 1000 / 60;
+
+if (
+  statusFormatado === "operacao" ||
+  statusFormatado === "aterramento em condicao normal" ||
+  statusFormatado === "pressurizado"
+) {
+  classe = "op"; icone = "🟢";
+} else if (
+  statusFormatado === "manutencao" ||
+  statusFormatado === "alerta de alta temperatura" ||
+  statusFormatado === "fuga de tensao ou aterramento rompido" ||
+  statusFormatado === "despressurizado"
+) {
+  classe = "man"; icone = "🔴";
+  if (minutosPassados > 30) tempoCritico = true;
+} else if (statusFormatado === "tecnico atuando na maquina") {
+        classe = "atu"; icone = "🔵";
+      } else if (statusFormatado === "desligado") {
+        classe = "desl"; icone = "🔶";
+      } else {
+        classe = "man"; icone = "⚠️";
+      }
+
+      const div = document.createElement("div");
+      div.className = "card " + classe + (tempoCritico ? " critico pulse-vermelho" : "");
+     // Conversão de status para exibição amigável
+let statusExibicao = item.status;
+if (statusFormatado === "operacao") statusExibicao = "Ligado";
+if (statusFormatado === "desligado") statusExibicao = "Desligado";
+if (statusFormatado === "manutencao") statusExibicao = "Manutenção";
+if (statusFormatado === "tecnico atuando na maquina") statusExibicao = "Técnico Atuando";
+if (statusFormatado === "aterramento em condicao normal") statusExibicao = "Aterramento em condição normal";
+if (statusFormatado === "fuga de tensao ou aterramento rompido") statusExibicao = "⚠️ Fuga de tensão ou aterramento rompido";
+if (statusFormatado === "pressurizado") statusExibicao = "Pressurizado";
+if (statusFormatado === "despressurizado") statusExibicao = "Despressurizado";
+div.innerHTML =
+  "<h3>" + item.maquina.normalize("NFC") + "</h3>" +
+  "<p>Status: <strong>" + icone + " " + statusExibicao + "</strong></p>" +
+  "<small>Atualizado: " + item.atualizado + "</small>";
+
+
+      // Ações específicas por máquina (IFTTT)
+      if (nomeMaquina.includes("compressorapistao")) {
+        div.addEventListener("click", () => {
+          if (div.classList.contains("desl")) {
+            fetch("https://maker.ifttt.com/trigger/ligarcompressorpistao/with/key/jHSdxV9XTOTvvdvR99711reumEdJgFr8ny0jbcC5xmV");
+          } else if (div.classList.contains("op")) {
+            fetch("https://maker.ifttt.com/trigger/desligarcompressorapistao/with/key/jHSdxV9XTOTvvdvR99711reumEdJgFr8ny0jbcC5xmV");
+          }
+        });
+      }
+
+      if (nomeMaquina.includes("torrederesfriamento")) {
+        div.addEventListener("click", () => {
+          if (div.classList.contains("desl")) {
+            fetch("https://maker.ifttt.com/trigger/torrederesfriamento/with/key/jHSdxV9XTOTvvdvR99711reumEdJgFr8ny0jbcC5xmV");
+          } else if (div.classList.contains("op")) {
+            fetch("https://maker.ifttt.com/trigger/desligartorrederesfriamento/with/key/jHSdxV9XTOTvvdvR99711reumEdJgFr8ny0jbcC5xmV");
+          }
+        });
+      }
+
+      const grupo = removerAcentos(item.grupo); // <-- vindo da planilha
+
+      switch (grupo) {
+        case "montagem final":
+        case "montagem":
+          montagemDiv.appendChild(div);
+          break;
+        case "injecao plastica":
+        case "injeção plástica":
+          injeDiv.appendChild(div);
+          break;
+        case "geral":
+          geralDiv.appendChild(div);
+          break;
+        default:
+          geralDiv.appendChild(div); // fallback
+      }
+    });
+
+    tocarAlarmeSeNecessario();
+  } catch (erro) {
+    console.error("Erro:", erro);
+    document.getElementById("status").textContent = "Erro ao carregar status.";
+    document.getElementById("montagem").innerHTML = "Erro ao carregar máquinas.";
+    document.getElementById("injeplast").innerHTML = "Erro ao carregar máquinas.";
+    document.getElementById("geral").innerHTML = "Erro ao carregar máquinas.";
+  }
+}
+
+function tocarAlarmeSeNecessario() {
+  if (muted) return;
+  const alertaTanque = document.querySelector('.alerta');
+  const manutencaoVermelha = document.querySelectorAll('.card.man');
+  if (alertaTanque || manutencaoVermelha.length > 0) {
+    const audio = document.getElementById("alarme");
+    audio.play().catch(e => console.log("Som bloqueado até interação do usuário"));
+    manutencaoVermelha.forEach(el => {
+      const texto = el.textContent.toLowerCase();
+      if (texto.includes('manutencao') || texto.includes('alerta de alta temperatura')) {
+        el.classList.add('pulse-vermelho');
+      } else {
+        el.classList.remove('pulse-vermelho');
+      }
+    });
+  }
+}
+
+function atualizarHora() {
+  const agora = new Date();
+  const hora = agora.toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' });
+  document.getElementById("horaAtual").textContent = hora;
+}
+
+function atualizarContadores() {
+  const total = document.querySelectorAll('.card').length;
+  const operando = document.querySelectorAll('.card.op').length;
+  const desligado = document.querySelectorAll('.card.desl').length;
+  const manutencao = document.querySelectorAll('.card.man').length;
+  const tecnico = document.querySelectorAll('.card.atu').length;
+  document.getElementById("contadores").textContent =
+    `🟢 ${operando} Operando | 🔶 ${desligado} Desligado | 🔴 ${manutencao} Manutenção | 🔵 ${tecnico} Técnico atuando | Total: ${total}`;
+}
+
+atualizarPainel();
+setInterval(atualizarPainel, 5000);
+setInterval(atualizarContadores, 5000);
+atualizarContadores();
+</script>
+
+</body>
+</html>
