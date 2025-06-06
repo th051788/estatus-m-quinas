@@ -1,0 +1,85 @@
+function doPost(e) {
+  const data = new Date();
+
+  // 📌 1. Registro de litros (Página2)
+  if (e.parameter.litros) {
+    const litros = Number(e.parameter.litros);
+    if (!litros || isNaN(litros) || litros <= 0) {
+      return ContentService.createTextOutput("Valor inválido");
+    }
+
+    const aba2 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página2");
+    aba2.appendRow([data, litros]);
+    return ContentService.createTextOutput("Litros registrados com sucesso");
+  }
+
+  // 📌 2. Atualização de status de máquina (Página1)
+  const maquina = e.parameter.value1;
+  const status = e.parameter.value2;
+
+  if (maquina && status) {
+    const aba1 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página1");
+    const totalLinhas = aba1.getLastRow();
+    const dados = aba1.getRange(2, 1, totalLinhas - 1, 1).getValues();
+
+    for (let i = 0; i < dados.length; i++) {
+      const nomeNaPlanilha = (dados[i][0] || "").toString().toLowerCase().trim();
+      const nomeRecebido = maquina.toLowerCase().trim();
+
+      if (nomeNaPlanilha === nomeRecebido) {
+        aba1.getRange(i + 2, 2).setValue(status);
+        aba1.getRange(i + 2, 3).setValue(data);
+        return ContentService.createTextOutput("Máquina atualizada com sucesso");
+      }
+    }
+    return ContentService.createTextOutput("Máquina não encontrada");
+  }
+
+  return ContentService.createTextOutput("Parâmetros ausentes ou inválidos");
+}
+
+
+function getHistorico() {
+  const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página2");
+  const dados = aba.getRange(2, 1, aba.getLastRow() - 1, 2).getValues();
+
+  const resultado = dados.map(linha => ({
+    data: Utilities.formatDate(new Date(linha[0]), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm"),
+    litros: linha[1]
+  }));
+
+  return ContentService.createTextOutput(JSON.stringify(resultado)).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+function getData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página1");
+  const data = ss.getRange(1, 1, ss.getLastRow(), 4).getValues(); // Pega até a coluna 4 (Grupo)
+  const resultado = [];
+
+  for (let i = 1; i < data.length; i++) {
+    resultado.push({
+      maquina: data[i][0]?.toString().trim() || "Sem nome",
+      status: data[i][1]?.toString().trim() || "indefinido",
+      atualizado: data[i][2]
+        ? Utilities.formatDate(new Date(data[i][2]), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
+        : "Sem data",
+      grupo: data[i][3]?.toString().trim() || "geral" // 👈 Aqui está o grupo
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify(resultado)).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+
+function doGet(e) {
+  if (e && e.parameter) {
+    if (e.parameter.func === "getData") return getData();
+    if (e.parameter.func === "getHistorico") return getHistorico();
+  }
+
+  const page = e.parameter && e.parameter.page ? e.parameter.page : "index";
+  return HtmlService.createHtmlOutputFromFile(page)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
