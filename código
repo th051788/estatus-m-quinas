@@ -7,7 +7,7 @@ const SPREADSHEET_SMT_ID = "1NNnBw2E_v9mrLqBZxzwccPJjksSWE7GXDilM4JgViX0"; // Pl
 const SPREADSHEET_TESTE_ID = "1QsDwBeE9Xy_cgdufmVhJJUBGNTroh9rxTzgkFELJeeg"; // Planilha de Teste
 const SPREADSHEET_FERRAMENTARIA_ID = "1-t6y78qTToG-xHXf-kMG3K7HuAsw2Yq9z7i2npAeFMM"; // Planilha Ferramentaria (NOVA)
 const PLANILHA_ORDENS_ID = "1hWzIuVcbmVv5noJYOM5LH3859fyg4gPVvIp5TqEeA6E";
-const EMAIL_NOTIFICACAO = "grupo.manutencao_industrial_am@intelbras.com.br"; // Destinatário da automação
+const EMAIL_NOTIFICACAO = "thiago.lima@intelbras.com.br"; // Destinatário da automação
 
 // Planilha de Acionamento Externa (Sinalização A5)
 const PLANILHA_ACIONAMENTO_ID = "1K37sspkcT01wILC3bVXU8cy0UmKhQMVvapJVFulJqCE";
