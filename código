@@ -677,7 +677,9 @@ function salvarRegistroCorretiva(tecnico, maquina, dados) {
     } catch (eExt) {}
 
     try {
-      enviarEmailCorretiva(tecnico, maquina, dados);
+      if (dados && dados.enviarEmail === true) {
+        enviarEmailCorretiva(tecnico, maquina, dados);
+      }
     } catch (errEmail) {
       console.log("Erro no envio do e-mail da corretiva: " + errEmail.message);
     }
