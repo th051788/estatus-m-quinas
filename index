@@ -1287,6 +1287,20 @@
               </div>
             </div>
 
+            <div class="form-group-corr">
+              <label class="form-label-small">Enviar e-mail da corretiva?</label>
+              <div class="btn-status-group mb-0" id="grupoEnviarEmailCorretiva">
+                <button class="btn-status" id="btnEnviarEmailSim" onclick="selecionarOpcaoEmailCorretiva(true)">
+                  <i class="bi bi-envelope-check"></i>
+                  <span>SIM</span>
+                </button>
+                <button class="btn-status" id="btnEnviarEmailNao" onclick="selecionarOpcaoEmailCorretiva(false)">
+                  <i class="bi bi-envelope-x"></i>
+                  <span>NÃO</span>
+                </button>
+              </div>
+            </div>
+
             <div class="toggle-peca" id="toggleServicoBtn" onclick="toggleArea('areaFotosServico', this)">
               <span class="toggle-text"><i class="bi bi-images"></i> Fotos do serviço?</span>
               <i class="bi bi-chevron-down icon-tgl" style="font-size: 20px;"></i>
@@ -1386,6 +1400,7 @@
       
       let isFetchingMaquinas = false;
       let isFetchingOrdens = false;
+      let enviarEmailCorretivaSelecionado = true;
 
       // MELHORIA DE PRÉ-CARREGAMENTO SILENCIOSO NO DOMContentLoaded
       window.addEventListener('DOMContentLoaded', () => {
@@ -2755,7 +2770,8 @@
               descPeca: document.getElementById('descPeca').value,
               equipe: equipeAuxiliar,
               areas: statusAreas,
-              fotos: fotosCorretiva
+              fotos: fotosCorretiva,
+              enviarEmail: enviarEmailCorretivaSelecionado
           };
           
           try {
@@ -2784,6 +2800,17 @@
           }
       }
 
+      function selecionarOpcaoEmailCorretiva(valor) {
+        enviarEmailCorretivaSelecionado = !!valor;
+        const btnSim = document.getElementById('btnEnviarEmailSim');
+        const btnNao = document.getElementById('btnEnviarEmailNao');
+        if (!btnSim || !btnNao) return;
+
+        btnSim.classList.toggle('selected-ok', enviarEmailCorretivaSelecionado === true);
+        btnNao.classList.toggle('selected-nok', enviarEmailCorretivaSelecionado === false);
+        salvarRascunhoCorretiva();
+      }
+
       function irParaRegistroCorretiva() {
         document.getElementById('maqCorretivaNome').innerText = maqAtu;
         const agora = new Date();
@@ -2801,6 +2828,7 @@
         equipeAuxiliar = []; 
         statusAreas = { areaPecas: false, areaFotosServico: false };
         fotosCorretiva = { pecaVelha: "", pecaNova: "", servAntes: "", servDepois: "", extras: [] };
+        enviarEmailCorretivaSelecionado = true;
         
         document.getElementById('areaPecas').classList.remove('show'); document.getElementById('togglePecaBtn').classList.remove('active');
         document.getElementById('areaFotosServico').classList.remove('show'); document.getElementById('toggleServicoBtn').classList.remove('active');
@@ -2815,9 +2843,11 @@
                 
                 exibirConfirmacao("Rascunho Localizado", "Encontrámos um registo que não foi guardado. Deseja restaurar as informações e fotos de onde parou?", () => {
                     restaurarCorretivaDireto(r);
+                    selecionarOpcaoEmailCorretiva(r.enviarEmail !== false);
                 }, () => {
                     // Clicou NÃO (Limpar Rascunho)
                     localStorage.removeItem(`rascunho_corr_${tecAtu}_${maqAtu}`);
+                    selecionarOpcaoEmailCorretiva(true);
                     calcularDowntime(); renderFotosCorretiva(); renderGaleriaExtras(); renderEquipe();
                     carregarSugestoesEExibirCorretiva();
                 });
@@ -2826,6 +2856,7 @@
         } 
         
         // Fluxo Normal (Se não tem rascunho)
+        selecionarOpcaoEmailCorretiva(enviarEmailCorretivaSelecionado);
         calcularDowntime(); renderFotosCorretiva(); renderGaleriaExtras(); renderEquipe();
         carregarSugestoesEExibirCorretiva();
       }
@@ -3007,6 +3038,7 @@
           causa: causa,
           acao: acao, 
           tecnicos: equipeFinal, 
+          enviarEmail: enviarEmailCorretivaSelecionado,
           trocouPeca: statusAreas.areaPecas, 
           peca: document.getElementById('descPeca').value,
           fotoPecaVelha: statusAreas.areaPecas ? fotosCorretiva.pecaVelha : "",
