@@ -1,85 +1,1046 @@
-function doPost(e) {
-  const data = new Date();
+/**
+ * CONFIGURAÇÃO GLOBAL
+ */
+const SPREADSHEET_ID = "1X2rrVIF7BQLEYX3oV5XGd0rUa2oSb4MpQNC9jDo7Aac"; // Planilha Principal (Industrial)
+const SPREADSHEET_SETUP_ID = "1Enc9kko22_Z8tIRdZpUkFdVNqCetEx-kwk6t4i8YAtg"; // Planilha de Setup
+const SPREADSHEET_SMT_ID = "1NNnBw2E_v9mrLqBZxzwccPJjksSWE7GXDilM4JgViX0"; // Planilha SMT
+const SPREADSHEET_TESTE_ID = "1QsDwBeE9Xy_cgdufmVhJJUBGNTroh9rxTzgkFELJeeg"; // Planilha de Teste
+const SPREADSHEET_FERRAMENTARIA_ID = "1-t6y78qTToG-xHXf-kMG3K7HuAsw2Yq9z7i2npAeFMM"; // Planilha Ferramentaria (NOVA)
+const PLANILHA_ORDENS_ID = "1hWzIuVcbmVv5noJYOM5LH3859fyg4gPVvIp5TqEeA6E";
+const EMAIL_NOTIFICACAO = "grupo.manutencao_industrial_am@intelbras.com.br"; // Destinatário da automação
 
-  // 📌 1. Registro de litros (Página2)
-  if (e.parameter.litros) {
-    const litros = Number(e.parameter.litros);
-    if (!litros || isNaN(litros) || litros <= 0) {
-      return ContentService.createTextOutput("Valor inválido");
-    }
+// Planilha de Acionamento Externa (Sinalização A5)
+const PLANILHA_ACIONAMENTO_ID = "1K37sspkcT01wILC3bVXU8cy0UmKhQMVvapJVFulJqCE";
 
-    const aba2 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página2");
-    aba2.appendRow([data, litros]);
-    return ContentService.createTextOutput("Litros registrados com sucesso");
+// NOVA: Planilha Externa de Informações/Status dos Equipamentos
+const PLANILHA_INFORMACOES_ID = "1yRIC9JYgFmg4GcIDVyzw8c3Y0_os27Fmilc5mcBsScs";
+
+function getSS() {
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+function getSSSetup() {
+  return SpreadsheetApp.openById(SPREADSHEET_SETUP_ID);
+}
+
+function getSS_SMT() {
+  return SpreadsheetApp.openById(SPREADSHEET_SMT_ID);
+}
+
+function getSS_TESTE() {
+  return SpreadsheetApp.openById(SPREADSHEET_TESTE_ID);
+}
+
+function getSS_FERRAMENTARIA() {
+  return SpreadsheetApp.openById(SPREADSHEET_FERRAMENTARIA_ID);
+}
+
+function getSSOrdens() {
+  return SpreadsheetApp.openById(PLANILHA_ORDENS_ID);
+}
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+      .setTitle('Sistema de Manutenção - Intelbras')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+}
+
+/**
+ * Função Auxiliar para localizar a aba de uma máquina em qualquer uma das planilhas configuradas
+ */
+function getMachineSheet(idMaquina) {
+  const ssPrincipal = getSS();
+  const ssSetup = getSSSetup();
+  const ssSMT = getSS_SMT();
+  const ssTeste = getSS_TESTE();
+  const ssFerramentaria = getSS_FERRAMENTARIA();
+  
+  // Procura na principal
+  let sheet = ssPrincipal.getSheetByName(idMaquina);
+  if (sheet) return { sheet: sheet, ss: ssPrincipal };
+  
+  // Procura no setup
+  sheet = ssSetup.getSheetByName(idMaquina);
+  if (sheet) return { sheet: sheet, ss: ssSetup };
+
+  // Procura no SMT
+  sheet = ssSMT.getSheetByName(idMaquina);
+  if (sheet) return { sheet: sheet, ss: ssSMT };
+
+  // Procura na Teste
+  sheet = ssTeste.getSheetByName(idMaquina);
+  if (sheet) return { sheet: sheet, ss: ssTeste };
+
+  // Procura na Ferramentaria
+  sheet = ssFerramentaria.getSheetByName(idMaquina);
+  if (sheet) return { sheet: sheet, ss: ssFerramentaria };
+  
+  return null; // Não encontrado
+}
+
+/**
+ * Normaliza texto para comparação (Remove acentos, espaços extras e coloca em MAIÚSCULO)
+ */
+function normalizarTexto(texto) {
+  if (!texto) return "";
+  return String(texto).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+/**
+ * Extrai números
+ */
+function extrairNumeros(texto) {
+  const nums = String(texto).match(/\d+/g);
+  return nums ? nums.map(n => parseInt(n, 10)) : [];
+}
+
+/**
+ * NOVO: Extrai apenas o número da ordem (ex: de "MOINHO 3 (4025208)" tira só "4025208")
+ */
+function extrairApenasNumeroOrdem(textoOrdem) {
+  if (!textoOrdem) return "";
+  let texto = String(textoOrdem);
+  
+  // Tenta achar o número que está entre parênteses
+  let match = texto.match(/\((\d+)\)/);
+  if (match) return match[1];
+  
+  // Se não achar parênteses, pega a maior sequência de números
+  let nums = texto.match(/\d+/g);
+  if (nums) {
+      return nums.reduce((max, curr) => curr.length > max.length ? curr : max, "");
   }
+  
+  return texto;
+}
 
-  // 📌 2. Atualização de status de máquina (Página1)
-  const maquina = e.parameter.value1;
-  const status = e.parameter.value2;
+// --- FUNÇÕES APP ---
 
-  if (maquina && status) {
-    const aba1 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página1");
-    const totalLinhas = aba1.getLastRow();
-    const dados = aba1.getRange(2, 1, totalLinhas - 1, 1).getValues();
+/**
+ * VALIDAÇÃO DE ACESSO POR SENHA
+ */
+function verificarSenhaTecnico(tecnico, senhaInformada) {
+  try {
+    const ss = getSS();
+    const sheet = ss.getSheetByName("Página1");
+    if (!sheet) return { sucesso: false, erro: "Aba de senhas não encontrada." };
+
+    const dados = sheet.getDataRange().getValues();
+    const tecnicoProcurado = tecnico.trim().toUpperCase();
 
     for (let i = 0; i < dados.length; i++) {
-      const nomeNaPlanilha = (dados[i][0] || "").toString().toLowerCase().trim();
-      const nomeRecebido = maquina.toLowerCase().trim();
+      const nomePlanilha = String(dados[i][0]).trim().toUpperCase();
+      const senhaPlanilha = String(dados[i][1]).trim();
 
-      if (nomeNaPlanilha === nomeRecebido) {
-        aba1.getRange(i + 2, 2).setValue(status);
-        aba1.getRange(i + 2, 3).setValue(data);
-        return ContentService.createTextOutput("Máquina atualizada com sucesso");
+      if (nomePlanilha === tecnicoProcurado) {
+        if (senhaPlanilha === String(senhaInformada).trim()) {
+          return { sucesso: true };
+        } else {
+          return { sucesso: false, erro: "Senha incorreta!" };
+        }
       }
     }
-    return ContentService.createTextOutput("Máquina não encontrada");
+    return { sucesso: false, erro: "Técnico não cadastrado na lista de senhas." };
+  } catch (e) {
+    return { sucesso: false, erro: "Erro ao validar senha: " + e.message };
   }
-
-  return ContentService.createTextOutput("Parâmetros ausentes ou inválidos");
 }
 
+/**
+ * LISTAR MÁQUINAS COM LOCALIZAÇÃO (N2) E SUBÁREA (N3)
+ * Agora retorna um objeto com metadados para montar os cards
+ */
+function listarMaquinas() {
+  try {
+    const namesToIgnore = ["LOG_SISTEMA", "REGISTROS_MANUTENCAO", "LOG_ACESSO", "MANUTENCOES", "Página1", "Sheet1", "REGISTROS_PREVENTIVA", "HISTORICO_CORRETIVAS", "DASHBOARD"];
+    
+    // Lista de planilhas para percorrer (Incluindo Ferramentaria)
+    const planilhas = [getSS(), getSSSetup(), getSS_SMT(), getSS_TESTE(), getSS_FERRAMENTARIA()];
+    
+    let listaCompleta = [];
 
-function getHistorico() {
-  const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página2");
-  const dados = aba.getRange(2, 1, aba.getLastRow() - 1, 2).getValues();
+    planilhas.forEach(ss => {
+        if(!ss) return;
+        const sheets = ss.getSheets();
+        
+        sheets.forEach(s => {
+            const nome = s.getName().trim();
+            if (!namesToIgnore.includes(nome)) {
+                // Tenta ler N2 e N3 para categorização
+                let local = "Geral";
+                let subarea = "";
+                
+                try {
+                    const metaData = s.getRange("N2:N3").getValues();
+                    if(metaData[0][0]) local = String(metaData[0][0]).trim();
+                    if(metaData[1][0]) subarea = String(metaData[1][0]).trim();
+                } catch(e) {}
 
-  const resultado = dados.map(linha => ({
-    data: Utilities.formatDate(new Date(linha[0]), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm"),
-    litros: linha[1]
-  }));
-
-  return ContentService.createTextOutput(JSON.stringify(resultado)).setMimeType(ContentService.MimeType.JSON);
-}
-
-
-function getData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Página1");
-  const data = ss.getRange(1, 1, ss.getLastRow(), 4).getValues(); // Pega até a coluna 4 (Grupo)
-  const resultado = [];
-
-  for (let i = 1; i < data.length; i++) {
-    resultado.push({
-      maquina: data[i][0]?.toString().trim() || "Sem nome",
-      status: data[i][1]?.toString().trim() || "indefinido",
-      atualizado: data[i][2]
-        ? Utilities.formatDate(new Date(data[i][2]), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
-        : "Sem data",
-      grupo: data[i][3]?.toString().trim() || "geral" // 👈 Aqui está o grupo
+                listaCompleta.push({
+                    nome: nome,
+                    area: local || "Outros",
+                    subarea: subarea
+                });
+            }
+        });
     });
-  }
 
-  return ContentService.createTextOutput(JSON.stringify(resultado)).setMimeType(ContentService.MimeType.JSON);
+    listaCompleta.sort((a, b) => {
+        if (a.area < b.area) return -1;
+        if (a.area > b.area) return 1;
+        return a.nome.localeCompare(b.nome);
+    });
+
+    return listaCompleta;
+
+  } catch (e) { 
+      return [{nome: "Erro ao carregar", area: "Erro", subarea: ""}]; 
+  }
 }
 
+function registrarSelecao(tecnico) {
+  try {
+    const ss = getSS();
+    let sheet = ss.getSheetByName("LOG_SISTEMA") || ss.insertSheet("LOG_SISTEMA");
+    sheet.appendRow([new Date(), "Login", tecnico]);
+    return "OK";
+  } catch (e) { return "Erro: " + e.message; }
+}
 
+/**
+ * PROCESSAR LEITURA QR CODE E RETORNAR LOCALIZAÇÃO
+ */
+function processarLeituraQRCode(tecnico, idMaquina) {
+  try {
+    const local = getMachineSheet(idMaquina);
+    let area = "";
+    let subarea = "";
+    let informacao = "";
+    
+    if (!local) {
+      const ssPrincipal = getSS();
+      let s = ssPrincipal.insertSheet(idMaquina);
+      s.appendRow(["Data", "Técnico", "Tipo", "Defeito/Atividade", "Status", "Detalhes_JSON"]);
+      s.getRange("A1:R1").setBackground("#00AA4E").setFontColor("white").setFontWeight("bold");
+    } else {
+      // Se a aba já existe, lemos a localização para exibir na tela
+      try {
+         const metaData = local.sheet.getRange("N2:N5").getValues();
+         if(metaData[0][0]) area = String(metaData[0][0]).trim();
+         if(metaData[1][0]) subarea = String(metaData[1][0]).trim();
+         if(metaData[3][0]) informacao = String(metaData[3][0]).trim(); // N5 é o status/info
+      } catch(e) {}
 
-function doGet(e) {
-  if (e && e.parameter) {
-    if (e.parameter.func === "getData") return getData();
-    if (e.parameter.func === "getHistorico") return getHistorico();
+      if (local.sheet.getLastRow() === 0) {
+        local.sheet.appendRow(["Data", "Técnico", "Tipo", "Defeito/Atividade", "Status", "Detalhes_JSON"]);
+        local.sheet.getRange("A1:R1").setBackground("#00AA4E").setFontColor("white").setFontWeight("bold");
+      }
+    }
+    
+    // Retorna objeto com dados em vez de apenas string
+    return { status: "Sucesso", area: area, subarea: subarea, informacao: informacao };
+  } catch (e) { return { status: "Erro", msg: e.message }; }
+}
+
+function buscarHistoricoMaquina(idMaquina) {
+  try {
+    const local = getMachineSheet(idMaquina);
+    
+    if (!local || local.sheet.getLastRow() === 0) {
+      return { lista: [], disponibilidade: "100%", mttr: "0", mtbf: "---", topDefeitos: [] };
+    }
+
+    const dados = local.sheet.getDataRange().getValues();
+    
+    if (dados.length > 0 && String(dados[0][0]).toUpperCase() === "DATA") {
+      dados.shift(); 
+    }
+
+    const historico = dados.map(r => {
+      let detalhesJSONStr = String(r[5] || "");
+      let ordem = "";
+      
+      // Tenta ler a ordem de dentro do JSON se existir (Importante para a Preventiva)
+      try {
+          let parsed = JSON.parse(detalhesJSONStr);
+          // Usa a função para garantir que registros antigos com nome longo fiquem limpos
+          if (parsed.ordemID) ordem = extrairApenasNumeroOrdem(parsed.ordemID);
+      } catch(e) {}
+
+      return {
+        data: r[0] instanceof Date ? Utilities.formatDate(r[0], "GMT-3", "dd/MM/yyyy") : String(r[0]),
+        tecnico: String(r[1] || "---"),
+        tipo: String(r[2] || "Geral"),
+        defeito: String(r[3] || "Sem descrição"),
+        status: String(r[4] || "-"),
+        detalhes: detalhesJSONStr,
+        ordemID: ordem
+      };
+    }).filter(r => r.tecnico !== "---").reverse();
+
+    const corretivas = historico.filter(h => h.tipo && h.tipo.toUpperCase().includes("CORRETIVA"));
+    const qtdFalhas = corretivas.length;
+    
+    let disp = "100%";
+    let mttrVal = "0"; 
+    let mtbfVal = "---"; 
+    let topDefeitos = [];
+
+    if (qtdFalhas > 0) {
+        let tempoTotalReparoHoras = 0;
+        let contagemDefeitos = {};
+
+        // LÊ O TEMPO REAL DE PARADA E OS DEFEITOS DE CADA CORRETIVA
+        corretivas.forEach(corr => {
+            // Contagem de Defeitos
+            let def = String(corr.defeito).trim();
+            if (def && def.toUpperCase() !== "SEM DESCRIÇÃO" && def !== "-" && def !== "") {
+                let key = def.toUpperCase();
+                if (!contagemDefeitos[key]) {
+                    contagemDefeitos[key] = { text: def, count: 0 };
+                }
+                contagemDefeitos[key].count++;
+            }
+
+            // Cálculo do Tempo
+            try {
+                const det = JSON.parse(corr.detalhes);
+                const strTempo = det.tempoParada || ""; // Ex: "1h 30min" ou "45 min"
+                let horas = 0;
+                let mins = 0;
+
+                // Extrai horas e minutos do texto
+                if (strTempo.includes("h")) {
+                    const partes = strTempo.split("h");
+                    horas = parseInt(partes[0].trim()) || 0;
+                    if (partes[1] && partes[1].includes("min")) {
+                        mins = parseInt(partes[1].replace("min", "").trim()) || 0;
+                    }
+                } else if (strTempo.includes("min")) {
+                    mins = parseInt(strTempo.replace("min", "").trim()) || 0;
+                }
+
+                // Soma ao tempo total em formato decimal (Ex: 1h 30min = 1.5 horas)
+                tempoTotalReparoHoras += (horas + (mins / 60));
+            } catch (e) {
+                // Ignora se não conseguir ler o JSON
+            }
+        });
+
+        // Extrai os Top 3 Defeitos
+        topDefeitos = Object.values(contagemDefeitos)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3)
+            .map(item => item.text);
+
+        // Assumindo um baseline de 1 mês produtivo (30 dias x 24h = 720 horas)
+        const tempoOperacional = 720; 
+        
+        // Evita que o tempo de reparo seja maior que o tempo operacional no cálculo
+        if (tempoTotalReparoHoras > tempoOperacional) {
+            tempoTotalReparoHoras = tempoOperacional; 
+        }
+        
+        // CÁLCULOS REAIS
+        const mttrReal = tempoTotalReparoHoras / qtdFalhas;
+        const mtbfCalc = (tempoOperacional - tempoTotalReparoHoras) / qtdFalhas;
+        const dispCalc = ((tempoOperacional - tempoTotalReparoHoras) / tempoOperacional) * 100;
+
+        mttrVal = mttrReal.toFixed(1);
+        mtbfVal = mtbfCalc.toFixed(0);
+        disp = dispCalc.toFixed(1) + "%";
+    }
+
+    return { lista: historico, disponibilidade: disp, mttr: mttrVal, mtbf: mtbfVal, topDefeitos: topDefeitos };
+  } catch (e) {
+    return { erro: e.message };
+  }
+}
+
+/**
+ * BUSCAR ITENS CHECKLIST - ATUALIZADO PARA NOVA ESTRUTURA COM 3 COLUNAS
+ */
+function buscarItensChecklist(idMaquina, tecnico) {
+  try {
+    const local = getMachineSheet(idMaquina);
+    if (!local) return { itens: [], tipo: "ERRO" };
+    
+    const tecUpper = tecnico.toUpperCase().trim();
+    
+    // Definição das equipes para distribuir as colunas
+    const timeSetup = ["DAYANE SILVA", "JOSE VAILTON", "SOFIA DA SILVA", "WENDERSON CASTRO", "RENAN", "VINICIUS"];
+    const timeSMT = ["DAYANNE", "FELIPE ALMEIDA", "OTNIEL", "RAINE", "ROGERIO", "ANSELMO", "WALMIR"];
+    const timeTeste = ["ODANIR", "ANDERSON", "CEZAR"];
+    const timeEletrica = ["HUDSON", "ROBERTHY", "IGOR", "THIAGO", "EDERLAN"];
+    const timeFerramentaria = ["SELBERTHS"];
+
+    // Configuração Padrão: Mecânica (Coluna P)
+    let colIndex = 15; // Coluna P (índice 15 no zero-based array do GAS)
+    let tipo = "MECÂNICA";
+
+    // Mapeamento de colunas por equipe
+    if (timeSetup.includes(tecUpper)) {
+      colIndex = 19; // Coluna T (índice 19) -> Lê T (Pergunta), U (OBS), V (Imagem)
+      tipo = "SETUP";
+    } else if (timeEletrica.includes(tecUpper)) {
+      colIndex = 19; // Coluna T (índice 19) -> Lê T (Pergunta), U (OBS), V (Imagem)
+      tipo = "ELÉTRICA";
+    } else if (timeTeste.includes(tecUpper)) {
+      colIndex = 15; // Coluna P (índice 15) -> Lê P (Pergunta), Q (OBS), R (Imagem)
+      tipo = "TESTE";
+    } else if (timeSMT.includes(tecUpper)) {
+      colIndex = 15; // Coluna P
+      tipo = "SMT";
+    } else if (timeFerramentaria.includes(tecUpper)) {
+      colIndex = 15; // Coluna P
+      tipo = "FERRAMENTARIA";
+    }
+
+    const lastRow = local.sheet.getLastRow();
+    if (lastRow < 2) return { itens: [], tipo: tipo };
+
+    // Puxa as 3 colunas a partir da coluna inicial mapeada acima (Pergunta, Gatilho OBS, Link Imagem)
+    const rangeDados = local.sheet.getRange(2, colIndex + 1, lastRow - 1, 3).getValues();
+    
+    const itensFormatados = rangeDados.map(row => {
+      const textoPergunta = String(row[0] || "").trim();
+      if (!textoPergunta) return null;
+
+      return {
+        pergunta: textoPergunta,
+        tipoGatilho: String(row[1] || "").trim().toUpperCase(), // Coluna seguinte (ex: Q, S ou U)
+        linkImagem: String(row[2] || "").trim()                 // Coluna seguinte (ex: R, T ou V)
+      };
+    }).filter(item => item !== null);
+
+    return { itens: itensFormatados, tipo: tipo };
+  } catch (e) { 
+    return { erro: e.message }; 
+  }
+}
+
+/**
+ * SALVA A PREVENTIVA E CHAMA O ENVIO DE E-MAIL
+ */
+function salvarChecklistPreventiva(tecnico, maquina, tipo, respostas, tempo, ordemID) {
+  try {
+    const local = getMachineSheet(maquina);
+    const targetSheet = local ? local.sheet : getSS().getSheetByName(maquina);
+    
+    // Extrai apenas os números para uso visual (E-mail e PDF)
+    const numeroOrdemLimpo = extrairApenasNumeroOrdem(ordemID);
+    
+    // Adiciona o OrdemID Limpo dentro do JSON para amarrar com o Histórico e o PDF
+    const jsonStr = JSON.stringify({ respostas: respostas, tempo: tempo, ordemID: numeroOrdemLimpo });
+    targetSheet.appendRow([new Date(), tecnico, "PREVENTIVA", "Checklist " + tipo, "Concluída", jsonStr]);
+    
+    // --- LÓGICA DE ATUALIZAÇÃO DA PLANILHA DE ORDENS E LOG ---
+    if (ordemID) {
+        const ssOrdens = getSSOrdens();
+        const tecUpper = tecnico.toUpperCase().trim();
+        
+        // Mapeamento de Times vs Abas
+        const timeTeste = ["ODANIR", "ANDERSON", "CEZAR"];
+        const timeSMT = ["DAYANNE", "FELIPE ALMEIDA", "OTNIEL", "RAINE", "ROGERIO", "ANSELMO", "WALMIR"];
+        const timeFerramentaria = ["SELBERTHS"];
+        
+        let nomeAba = "MF+INJ"; // Default
+        if (timeTeste.includes(tecUpper)) nomeAba = "TESTE";
+        else if (timeSMT.includes(tecUpper)) nomeAba = "SMT";
+        else if (timeFerramentaria.includes(tecUpper)) nomeAba = "MOLDE";
+        
+        const abaOrdens = ssOrdens.getSheetByName(nomeAba);
+        if (abaOrdens) {
+            const dadosO = abaOrdens.getDataRange().getValues();
+            for (let i = 1; i < dadosO.length; i++) {
+                // ATENÇÃO: Aqui mantemos a busca usando a string original "ordemID" pra garantir que a planilha bata
+                if (String(dadosO[i][0]).trim() === String(ordemID).trim()) {
+                    abaOrdens.getRange(i + 1, 7).setValue("CONFIRMADO"); // Coluna G
+                    break;
+                }
+            }
+        }
+        
+        // Preencher aba LOG
+        const abaLog = ssOrdens.getSheetByName("LOG");
+        if (abaLog) {
+            const dataConclusao = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy HH:mm:ss");
+            abaLog.appendRow([
+    new Date(), 
+    ordemID,    
+    tecnico,    
+    nomeAba,    
+    "", // Coluna E vazia
+    "Checklist de manutenção preventiva"
+]);
+        }
+    }
+
+    // --- NOVA FUNÇÃO DE ENVIO DE E-MAIL PARA PREVENTIVA ---
+    try {
+        // Envia o e-mail passando a string "limpa" para não aparecer os parênteses feios
+        enviarEmailPreventiva(tecnico, maquina, tipo, respostas, tempo, numeroOrdemLimpo);
+    } catch (errEmail) {
+        console.log("Erro no envio do e-mail de preventiva: " + errEmail.message);
+    }
+
+    return "Salvo com sucesso!";
+  } catch (e) { return "Erro: " + e.message; }
+}
+
+/**
+ * ENVIA E-MAIL AO CONCLUIR MANUTENÇÃO PREVENTIVA (C/ ORDEM E FOTOS EXTRAS DO ITEM)
+ */
+function enviarEmailPreventiva(tecnico, maquina, tipo, respostas, tempo, ordemID) {
+  if (!respostas || respostas.length === 0) return;
+
+  const dataFormatada = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy HH:mm");
+  const imagensInline = {};
+  let htmlFotos = '';
+  const imgStyle = "width:100%; height:auto; max-height:350px; border-radius:8px; border:1px solid #ddd; display:block; margin-bottom:10px;";
+  
+  let htmlRespostas = '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">';
+
+  respostas.forEach((resp, index) => {
+      let statusExibir = resp.status === 'OBS' ? 'LIDO' : resp.status;
+      let corStatus = resp.status === 'OK' ? '#00AA4E' : (resp.status === 'NOK' ? '#dc3545' : (resp.status === 'OBS' ? '#17a2b8' : '#95a5a6'));
+      htmlRespostas += `<tr><td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>${resp.item}</strong></td><td style="padding: 10px; border-bottom: 1px solid #eee; color: ${corStatus}; font-weight: bold;">${statusExibir}</td></tr>`;
+      
+      if (resp.obs) {
+          htmlRespostas += `<tr><td colspan="2" style="padding: 5px 10px 10px 10px; border-bottom: 1px solid #eee; font-size: 12px; color: #dc3545;">Obs: ${resp.obs}</td></tr>`;
+      }
+      
+      // Avalia fotos por item (antes, depois, e array extra do item)
+      let temFotoItem = resp.photoAntes || resp.photoDepois || (resp.extras && resp.extras.length > 0);
+      
+      if (temFotoItem) {
+          htmlFotos += `<div style="margin-top:15px; border-top: 1px dashed #eee; padding-top:10px;">
+                          <h4 style="color:#0056b3; margin-bottom:10px;">Evidências: ${resp.item}</h4>
+                          <div style="display:flex; gap:10px; flex-wrap:wrap;">`;
+          if (resp.photoAntes) {
+              const cid = "antes_" + index;
+              const b = criarBlobDeBase64(resp.photoAntes, cid);
+              if (b) { 
+                  imagensInline[cid] = b; 
+                  htmlFotos += `<div style="flex:1; min-width:200px;"><p style="font-size:12px; font-weight:bold;">Antes:</p><img src="cid:${cid}" style="${imgStyle}"></div>`; 
+              }
+          }
+          if (resp.photoDepois) {
+              const cid = "depois_" + index;
+              const b = criarBlobDeBase64(resp.photoDepois, cid);
+              if (b) { 
+                  imagensInline[cid] = b; 
+                  htmlFotos += `<div style="flex:1; min-width:200px;"><p style="font-size:12px; font-weight:bold;">Depois:</p><img src="cid:${cid}" style="${imgStyle}"></div>`; 
+              }
+          }
+          
+          // FOTOS EXTRAS POR ITEM
+          if (resp.extras && resp.extras.length > 0) {
+              resp.extras.forEach((ex, eIdx) => {
+                  const cid = "ext_" + index + "_" + eIdx;
+                  const b = criarBlobDeBase64(ex, cid);
+                  if (b) { 
+                      imagensInline[cid] = b; 
+                      htmlFotos += `<div style="flex:1; min-width:200px;"><p style="font-size:12px; font-weight:bold;">Extra ${eIdx+1}:</p><img src="cid:${cid}" style="${imgStyle}"></div>`; 
+                  }
+              });
+          }
+          htmlFotos += `</div></div>`;
+      }
+  });
+  htmlRespostas += '</table>';
+
+  let ordemFormatadaTitulo = ordemID ? `(${ordemID})` : '';
+
+  const htmlTemplate = `
+    <div style="font-family: 'Poppins', sans-serif, Arial; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 15px; overflow: hidden; color: #333; background-color: #ffffff;">
+      <div style="background-color: #00AA4E; padding: 20px; text-align: center; color: white;">
+        <h2 style="margin: 0;">Relatório de Manutenção Preventiva</h2>
+        <p style="margin: 5px 0 0 0; opacity: 0.8;">Intelbras - Manutenção Industrial</p>
+      </div>
+      <div style="padding: 25px;">
+        <div style="background-color: #f8f9fa; border-left: 5px solid #0056b3; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+          <h3 style="margin: 0; color: #0056b3;">Resumo da Preventiva</h3>
+          <p style="margin: 5px 0;"><strong>Equipamento:</strong> ${maquina}</p>
+          ${ordemID ? `<p style="margin: 5px 0;"><strong>Ordem de Serviço:</strong> <span style="color:#00AA4E; font-weight:bold;">${ordemID}</span></p>` : ''}
+          <p style="margin: 5px 0;"><strong>Especialidade:</strong> ${tipo}</p>
+          <p style="margin: 5px 0;"><strong>Tempo de Execução:</strong> ${tempo}</p>
+          <p style="margin: 5px 0;"><strong>Técnico:</strong> ${tecnico}</p>
+        </div>
+        <h4 style="color: #333; border-bottom: 2px solid #00AA4E; padding-bottom: 5px;">Itens Verificados</h4>
+        ${htmlRespostas}
+        ${htmlFotos}
+        <div style="text-align: center; font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #f0f0f0; padding-top: 15px;">Este é um e-mail automático gerado em ${dataFormatada} por <strong>Sistema de Gestão de Manutenção</strong>.</div>
+      </div>
+    </div>
+  `;
+
+  MailApp.sendEmail({
+    to: EMAIL_NOTIFICACAO,
+    subject: `✅ Preventiva Concluída: ${maquina} ${ordemFormatadaTitulo} - ${tecnico}`,
+    htmlBody: htmlTemplate,
+    inlineImages: imagensInline
+  });
+}
+
+function salvarChamadoManutencao(solicitante, maquina, tipoManutencao, descricao, foto) {
+  try {
+    const local = getMachineSheet(maquina);
+    const targetSheet = local ? local.sheet : getSS().getSheetByName(maquina);
+    
+    if (!targetSheet) return "Erro: Máquina não encontrada.";
+    
+    const dataChamado = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy HH:mm");
+    
+    const dadosChamado = {
+      solicitante: solicitante,
+      tipo: tipoManutencao,
+      descricao: descricao,
+      dataHora: dataChamado,
+      foto: foto || "" 
+    };
+
+    targetSheet.appendRow([new Date(), solicitante, "CHAMADO", "Aberto: " + tipoManutencao, "Pendente", JSON.stringify(dadosChamado)]);
+    
+    try {
+      const ssExt = SpreadsheetApp.openById(PLANILHA_ACIONAMENTO_ID);
+      const sheetExt = ssExt.getSheets()[0];
+      const mensagemA5 = `${solicitante} esta acionando a manutenção ${tipoManutencao}, ${descricao} equipamento ${maquina}`;
+      sheetExt.getRange("A5").setValue(mensagemA5);
+    } catch (eExt) {
+      console.log("Erro no acionamento A5: " + eExt.message);
+    }
+
+    let inlineImages = {};
+    let htmlFoto = "";
+    
+    if (foto) {
+      const blob = criarBlobDeBase64(foto, "fotoChamado");
+      if (blob) {
+        inlineImages["fotoChamado"] = blob;
+        htmlFoto = `
+        <div style="margin-top:20px; border-top: 1px solid #eee; padding-top:10px;">
+           <h4 style="color:#666; margin-bottom:10px;">Evidência Anexada</h4>
+           <img src="cid:fotoChamado" style="width:100%; max-width:400px; border-radius:8px; border:1px solid #ddd;">
+        </div>`;
+      }
+    }
+
+    const htmlTemplateChamado = `
+      <div style="font-family: 'Poppins', sans-serif, Arial; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 15px; overflow: hidden; color: #333; background-color: #ffffff;">
+        <div style="background-color: #dc3545; padding: 20px; text-align: center; color: white;">
+          <h2 style="margin: 0;">⚠️ Novo Chamado de Manutenção</h2>
+          <p style="margin: 5px 0 0 0; opacity: 0.9;">Acionamento Imediato - Produção</p>
+        </div>
+        <div style="padding: 25px;">
+          <div style="background-color: #fff5f5; border-left: 5px solid #dc3545; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+            <h3 style="margin: 0; color: #dc3545;">Destaques da Solicitação</h3>
+            <p style="margin: 5px 0;"><strong>Equipamento:</strong> ${maquina}</p>
+            <p style="margin: 5px 0;"><strong>Tipo de Manutenção:</strong> ${tipoManutencao}</p>
+            <p style="margin: 5px 0;"><strong>Solicitante:</strong> ${solicitante}</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; width: 30%;">Data/Hora:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dataChamado}</td></tr>
+            <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">Descrição:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${descricao}</td></tr>
+          </table>
+          ${htmlFoto}
+          <div style="text-align: center; font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #f0f0f0; padding-top: 15px;">Sistema de Gestão de Manutenção</div>
+        </div>
+      </div>`;
+      
+    try {
+      MailApp.sendEmail({ 
+        to: EMAIL_NOTIFICACAO, 
+        subject: `⚠️ CHAMADO ABERTO: ${maquina} (${tipoManutencao})`, 
+        htmlBody: htmlTemplateChamado,
+        inlineImages: inlineImages
+      });
+    } catch(eEmail) {}
+
+    return "Chamado registrado com sucesso!";
+  } catch (e) { return "Erro: " + e.message; }
+}
+
+function salvarRegistroCorretiva(tecnico, maquina, dados) {
+  try {
+    const local = getMachineSheet(maquina);
+    const targetSheet = local ? local.sheet : getSS().getSheetByName(maquina);
+    
+    const equipePlanilha = dados.tecnicos ? dados.tecnicos.join(", ") : tecnico;
+    targetSheet.appendRow([new Date(), equipePlanilha, "CORRETIVA", dados.defeito, "Concluída", JSON.stringify(dados)]);
+    
+    try {
+      const ssExt = SpreadsheetApp.openById(PLANILHA_ACIONAMENTO_ID);
+      const sheetExt = ssExt.getSheets()[0];
+      sheetExt.getRange("A5").setValue("on");
+    } catch (eExt) {}
+
+    try {
+      enviarEmailCorretiva(tecnico, maquina, dados);
+    } catch (errEmail) {
+      console.log("Erro no envio do e-mail da corretiva: " + errEmail.message);
+    }
+    
+    return "Salvo com sucesso!";
+  } catch (e) { return "Erro: " + e.message; }
+}
+
+/**
+ * VERIFICAR ORDEM PREVENTIVA COM SELEÇÃO INTELIGENTE DE ABA E CORREÇÃO DE BUSCA EXATA
+ */
+function verificarOrdemPreventiva(maquina, tecnico) {
+  try {
+    const ss = getSSOrdens();
+    const tecUpper = tecnico.toUpperCase().trim();
+    
+    // Mapeamento de Times vs Abas
+    const timeTeste = ["ODANIR", "ANDERSON", "CEZAR"];
+    const timeSMT = ["DAYANNE", "FELIPE ALMEIDA", "OTNIEL", "RAINE", "ROGERIO", "ANSELMO", "WALMIR"];
+    const timeFerramentaria = ["SELBERTHS"];
+    
+    let nomeAba = "MF+INJ"; // Default
+    
+    if (timeTeste.includes(tecUpper)) {
+      nomeAba = "TESTE";
+    } else if (timeSMT.includes(tecUpper)) {
+      nomeAba = "SMT";
+    } else if (timeFerramentaria.includes(tecUpper)) {
+      nomeAba = "MOLDE";
+    }
+    
+    const aba = ss.getSheetByName(nomeAba);
+    if (!aba) {
+      console.warn("Aba " + nomeAba + " não encontrada. Usando a primeira.");
+      return { encontrou: false, erro: "Aba de ordens (" + nomeAba + ") não encontrada." };
+    }
+
+    const dados = aba.getDataRange().getValues();
+    dados.shift(); // Remove cabeçalho
+
+    const maquinaNorm = normalizarTexto(maquina);
+    const tecnicoNorm = normalizarTexto(tecnico);
+
+    // Loop pelas ordens da planilha
+    for (let i = 0; i < dados.length; i++) {
+      const row = dados[i];
+      const txtOrdem = String(row[0] || ""); // Coluna A (Ex: "MOLDE-1 (4025461)")
+      const txtTecnico = String(row[4] || ""); // Coluna E
+      const txtStatus = String(row[5] || ""); // Coluna F
+
+      if (!txtOrdem || txtOrdem.length < 2) continue;
+
+      const statusNorm = normalizarTexto(txtStatus);
+      const isConcluido = statusNorm.includes("CONCLUIDO") || statusNorm.includes("CONFIRMADO");
+      const isPendente = statusNorm.includes("ATRASO") || statusNorm.includes("EM DIA");
+      
+      if (isConcluido || !isPendente) continue;
+
+      const rowTecNorm = normalizarTexto(txtTecnico);
+      if (!rowTecNorm.includes(tecnicoNorm) && !tecnicoNorm.includes(rowTecNorm)) continue;
+
+      /**
+       * CORREÇÃO APLICADA: 
+       * Extraímos o nome do equipamento (antes do parênteses) para comparar de forma exata.
+       * Isso evita que "MOLDE-1" pegue ordens de "MOLDE-14".
+       */
+      let nomeEquipamentoNaOrdem = txtOrdem.split('(')[0].trim();
+      
+      if (normalizarTexto(nomeEquipamentoNaOrdem) === maquinaNorm) {
+        return { encontrou: true, ordem: txtOrdem, status: txtStatus };
+      }
+    }
+    return { encontrou: false };
+  } catch (e) { return { erro: e.message }; }
+}
+
+function enviarEmailCorretiva(tecnico, maquina, dados) {
+  if (!dados) return;
+
+  const dataFormatada = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy HH:mm");
+  const equipeExibicao = dados.tecnicos ? dados.tecnicos.join(", ") : tecnico;
+  const imagensInline = {};
+  
+  let htmlFotos = '';
+  const imgStyle = "width:100%; height:auto; max-height:350px; border-radius:8px; border:1px solid #ddd; display:block;";
+
+  if (dados.trocouPeca && (dados.fotoPecaVelha || dados.fotoPecaNova)) {
+    htmlFotos += `<div style="margin-top:20px; border-top: 1px solid #eee; padding-top:10px;"><h4 style="color:#00AA4E; margin-bottom:10px;">Evidências de Peças</h4><div style="display:flex; gap:10px; flex-wrap:wrap;">`;
+    if (dados.fotoPecaVelha) {
+      const blobVelha = criarBlobDeBase64(dados.fotoPecaVelha, "pecaVelha");
+      if (blobVelha) {
+        imagensInline["pecaVelha"] = blobVelha;
+        htmlFotos += `<div style="flex:1; min-width:200px; margin-bottom:10px;"><p style="font-size:12px; margin-bottom:5px; font-weight:bold;">Peça Velha:</p><img src="cid:pecaVelha" style="${imgStyle}"></div>`;
+      }
+    }
+    if (dados.fotoPecaNova) {
+      const blobNova = criarBlobDeBase64(dados.fotoPecaNova, "pecaNova");
+      if (blobNova) {
+        imagensInline["pecaNova"] = blobNova;
+        htmlFotos += `<div style="flex:1; min-width:200px; margin-bottom:10px;"><p style="font-size:12px; margin-bottom:5px; font-weight:bold;">Peça Nova:</p><img src="cid:pecaNova" style="${imgStyle}"></div>`;
+      }
+    }
+    htmlFotos += `</div></div>`;
+  }
+  
+  if (dados.temFotosServico && (dados.fotoServAntes || dados.fotoServDepois)) {
+    htmlFotos += `<div style="margin-top:20px; border-top: 1px solid #eee; padding-top:10px;"><h4 style="color:#00AA4E; margin-bottom:10px;">Evidências do Serviço (Antes vs Depois)</h4><div style="display:flex; gap:10px; flex-wrap:wrap;">`;
+    if (dados.fotoServAntes) {
+      const blobAntes = criarBlobDeBase64(dados.fotoServAntes, "servAntes");
+      if (blobAntes) {
+        imagensInline["servAntes"] = blobAntes;
+        htmlFotos += `<div style="flex:1; min-width:200px; margin-bottom:10px;"><p style="font-size:12px; margin-bottom:5px; font-weight:bold;">Antes:</p><img src="cid:servAntes" style="${imgStyle}"></div>`;
+      }
+    }
+    if (dados.fotoServDepois) {
+      const blobDepois = criarBlobDeBase64(dados.fotoServDepois, "servDepois");
+      if (blobDepois) {
+        imagensInline["servDepois"] = blobDepois;
+        htmlFotos += `<div style="flex:1; min-width:200px; margin-bottom:10px;"><p style="font-size:12px; margin-bottom:5px; font-weight:bold;">Depois:</p><img src="cid:servDepois" style="${imgStyle}"></div>`;
+      }
+    }
+    htmlFotos += `</div></div>`;
   }
 
-  const page = e.parameter && e.parameter.page ? e.parameter.page : "index";
-  return HtmlService.createHtmlOutputFromFile(page)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  if (dados.temFotosServico && dados.fotosExtras && dados.fotosExtras.length > 0) {
+    htmlFotos += `<div style="margin-top:20px; border-top: 1px solid #eee; padding-top:10px;"><h4 style="color:#666; margin-bottom:10px;">Fotos Adicionais</h4><div style="display:block;">`;
+    dados.fotosExtras.forEach((fotoBase64, idx) => {
+       const cidExtra = "extra" + idx;
+       const blobExtra = criarBlobDeBase64(fotoBase64, cidExtra);
+       if (blobExtra) {
+         imagensInline[cidExtra] = blobExtra;
+         htmlFotos += `<div style="margin-bottom:15px;"><p style="font-size:11px; color:#999;">Foto Extra ${idx+1}:</p><img src="cid:${cidExtra}" style="${imgStyle}"></div>`;
+       }
+    });
+    htmlFotos += `</div></div>`;
+  }
+
+  const htmlTemplate = `
+    <div style="font-family: 'Poppins', sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 15px; overflow: hidden; color: #333; background-color: #ffffff;">
+      <div style="background-color: #00AA4E; padding: 20px; text-align: center; color: white;">
+        <h2 style="margin: 0;">Relatório de Manutenção Corretiva</h2>
+        <p style="margin: 5px 0 0 0; opacity: 0.8;">Intelbras - Manutenção Industrial</p>
+      </div>
+      <div style="padding: 25px;">
+        <div style="background-color: #f8f9fa; border-left: 5px solid #0056b3; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+          <h3 style="margin: 0; color: #0056b3;">Destaques da Intervenção</h3>
+          <p style="margin: 5px 0;"><strong>Equipamento:</strong> ${maquina}</p>
+          <p style="margin: 5px 0;"><strong>Tempo de Parada:</strong> <span style="color: #d32f2f; font-weight: bold;">${dados.tempoParada || 'N/A'}</span></p>
+          <p style="margin: 5px 0;"><strong>Equipe Técnica:</strong> ${equipeExibicao}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; width: 30%;">Início da Corretiva:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dados.inicio || 'N/A'}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">Fim da Corretiva:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dados.fim || 'N/A'}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">Defeito:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dados.defeito || 'N/A'}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">Causa Raiz:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dados.causa || 'Não informada'}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">Ação Realizada:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dados.acao || 'Não informada'}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">Peça Trocada:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${dados.trocouPeca ? (dados.peca || 'Sim') : 'Nenhuma'}</td></tr>
+        </table>
+        ${htmlFotos}
+        <div style="text-align: center; font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #f0f0f0; padding-top: 15px;">Este é um e-mail automático gerado em ${dataFormatada} por <strong>Sistema de Gestão de Manutenção</strong>.</div>
+      </div>
+    </div>
+  `;
+
+  MailApp.sendEmail({
+    to: EMAIL_NOTIFICACAO,
+    subject: `🚨 Corretiva Realizada: ${maquina} (${equipeExibicao})`,
+    htmlBody: htmlTemplate,
+    inlineImages: imagensInline
+  });
+}
+
+function criarBlobDeBase64(base64Data, nomeArquivo) {
+  try {
+    if (!base64Data || !base64Data.includes("base64,")) return null;
+    const parts = base64Data.split("base64,");
+    const contentType = parts[0].replace("data:", "").replace(";", "");
+    const data = parts[1];
+    const decoded = Utilities.base64Decode(data);
+    return Utilities.newBlob(decoded, contentType, nomeArquivo);
+  } catch (e) {
+    console.log("Erro ao converter imagem: " + e.message);
+    return null;
+  }
+}
+
+function configurarSenhasIniciais() {
+  const ss = getSS();
+  let sheet = ss.getSheetByName("Página1");
+  if (!sheet) sheet = ss.insertSheet("Página1");
+  const tecnicos = [
+    ["HUDSON", "123"], ["ROBERTHY", "123"], ["IGOR", "123"], ["THIAGO", "123"], ["EDERLAN", "123"], ["ARIANNE", "123"], ["JOSÉ FRANCISCO", "123"], ["EDINALDO", "123"],
+    ["DAYANE SILVA", "123"], ["JOSE VAILTON", "123"], ["SOFIA DA SILVA", "123"], ["WENDERSON CASTRO", "123"], ["RENAN", "123"], ["VINICIUS", "123"],
+    ["DAYANNE", "123"], ["FELIPE ALMEIDA", "123"], ["OTNIEL", "123"], ["RAINE", "123"], ["ROGERIO", "123"], ["ANSELMO", "123"], ["WALMIR", "123"],
+    ["ODANIR", "123"], ["ANDERSON", "123"], ["CEZAR", "123"],
+    ["SELBERTHS", "123"] 
+  ];
+  sheet.clear();
+  sheet.getRange(1, 1, tecnicos.length, 2).setValues(tecnicos);
+  return "Senhas e técnicos configurados com sucesso!";
+}
+
+function testarEnvioEmail() {
+  const tecnicoMock = "Hudson";
+  const maquinaMock = "Máquina Kit 01";
+  const dadosMock = { inicio: "13/02/2026 08:00", fim: "13/02/2026 08:45", tempoParada: "45 min", defeito: "Correia frouxa", causa: "Desgaste", acao: "Aperto", tecnicos: ["Hudson"], trocouPeca: false, temFotosServico: false };
+  enviarEmailCorretiva(tecnicoMock, maquinaMock, dadosMock);
+}
+
+/**
+ * BUSCAR ORDENS PENDENTES DO TÉCNICO (OU DE TODOS SE FOR PRODUÇÃO) PARA COLORIR A LISTA DE MÁQUINAS
+ */
+function buscarOrdensPendentes(tecnico) {
+  try {
+    const ss = getSSOrdens();
+    if (!tecnico) return [];
+
+    const isProducao = (tecnico === "Produção");
+    const tecUpper = tecnico.toUpperCase().trim();
+    
+    // Se for produção, varre todas as abas. Se não, varre só a do técnico.
+    let abasParaBuscar = ["MF+INJ"]; // Default
+    if (isProducao) {
+        abasParaBuscar = ["MF+INJ", "TESTE", "SMT", "MOLDE"];
+    } else {
+        const timeTeste = ["ODANIR", "ANDERSON", "CEZAR"];
+        const timeSMT = ["DAYANNE", "FELIPE ALMEIDA", "OTNIEL", "RAINE", "ROGERIO", "ANSELMO", "WALMIR"];
+        const timeFerramentaria = ["SELBERTHS"];
+        
+        if (timeTeste.includes(tecUpper)) abasParaBuscar = ["TESTE"];
+        else if (timeSMT.includes(tecUpper)) abasParaBuscar = ["SMT"];
+        else if (timeFerramentaria.includes(tecUpper)) abasParaBuscar = ["MOLDE"];
+    }
+
+    const tecnicoNorm = normalizarTexto(tecnico);
+    const limparIdentificador = (t) => normalizarTexto(t).replace(/[^A-Z0-9]/g, "").replace(/0+([0-9]+)/g, "$1");
+
+    let pendentes = [];
+
+    // Percorre as abas definidas
+    abasParaBuscar.forEach(nomeAba => {
+        const aba = ss.getSheetByName(nomeAba);
+        if (!aba) return;
+
+        const dados = aba.getDataRange().getValues();
+        dados.shift(); // Remove cabeçalho
+
+        for (let i = 0; i < dados.length; i++) {
+          const row = dados[i];
+          const txtOrdem = String(row[0] || ""); // Coluna A
+          const txtTecnico = String(row[4] || ""); // Coluna E
+          const txtStatus = String(row[5] || ""); // Coluna F
+
+          if (!txtOrdem || txtOrdem.length < 2) continue;
+
+          const statusNorm = normalizarTexto(txtStatus);
+          const isConcluido = statusNorm.includes("CONCLUIDO") || statusNorm.includes("CONFIRMADO");
+          const isPendente = statusNorm.includes("ATRASO") || statusNorm.includes("EM DIA");
+          
+          if (isConcluido || !isPendente) continue;
+
+          // Se NÃO for produção, exige que o nome do técnico esteja na ordem. 
+          if (!isProducao) {
+              const rowTecNorm = normalizarTexto(txtTecnico);
+              if (!rowTecNorm.includes(tecnicoNorm) && !tecnicoNorm.includes(rowTecNorm)) continue;
+          }
+
+          /**
+           * CORREÇÃO AQUI TAMBÉM: Usamos o nome do equipamento para o ID limpo que colore os cards
+           */
+          let nomeEq = txtOrdem.split('(')[0].trim();
+          const idOrdemLimpo = limparIdentificador(nomeEq);
+          const tipoStatus = statusNorm.includes("ATRASO") ? "ATRASADO" : "EM DIA";
+
+          pendentes.push({ idLimpo: idOrdemLimpo, status: tipoStatus });
+        }
+    });
+
+    return pendentes;
+  } catch (e) { return []; }
+}
+
+/**
+ * IMPLEMENTAÇÃO DAS FUNÇÕES DE INFORMAÇÃO DA MÁQUINA
+ */
+function buscarInformacaoMaquina(idMaquina) {
+  try {
+    const local = getMachineSheet(idMaquina);
+    if (!local) return "";
+    const info = local.sheet.getRange("N5").getValue();
+    return String(info || "");
+  } catch(e) { return ""; }
+}
+
+function salvarInformacaoMaquina(maquina, tecnico, informacao) {
+  try {
+    const local = getMachineSheet(maquina);
+    if (!local) return "Erro: Máquina não encontrada.";
+    
+    // Salva na célula N5 da aba da máquina
+    local.sheet.getRange("N5").setValue(informacao);
+    
+    // Registra no histórico que a informação foi alterada
+    local.sheet.appendRow([new Date(), tecnico, "STATUS", "Informação/Aviso Atualizado", "OK", JSON.stringify({aviso: informacao})]);
+    
+    // --- INTEGRAÇÃO: Salvar na planilha externa de informações ---
+    try {
+        const ssInfo = SpreadsheetApp.openById(PLANILHA_INFORMACOES_ID);
+        const abaInfo = ssInfo.getSheetByName("Página1");
+        if (abaInfo) {
+            const dadosInfo = abaInfo.getDataRange().getValues();
+            let linhaEncontrada = -1;
+            const dataAtual = Utilities.formatDate(new Date(), "GMT-3", "dd/MM/yyyy HH:mm:ss");
+
+            for (let i = 0; i < dadosInfo.length; i++) {
+                if (String(dadosInfo[i][0]).trim() === String(maquina).trim()) {
+                    linhaEncontrada = i + 1; // +1 porque o array começa em 0 e as linhas no sheets em 1
+                    break;
+                }
+            }
+
+            if (linhaEncontrada !== -1) {
+                abaInfo.getRange(linhaEncontrada, 2).setValue(informacao); // Coluna B
+                abaInfo.getRange(linhaEncontrada, 3).setValue(dataAtual);  // Coluna C
+            } else {
+                abaInfo.appendRow([maquina, informacao, dataAtual]);
+            }
+        }
+    } catch (erroInfo) {
+        console.log("Erro ao salvar na planilha externa de informações: " + erroInfo.message);
+    }
+    
+    return "Aviso salvo com sucesso na aba do equipamento e no painel geral!";
+  } catch(e) {
+    return "Erro ao salvar: " + e.message;
+  }
+}
+
+function apagarInformacaoMaquina(maquina) {
+  try {
+    const local = getMachineSheet(maquina);
+    if (!local) return "Erro: Máquina não encontrada.";
+    local.sheet.getRange("N5").clearContent();
+
+    // --- INTEGRAÇÃO: Apagar da planilha externa de informações ---
+    try {
+        const ssInfo = SpreadsheetApp.openById(PLANILHA_INFORMACOES_ID);
+        const abaInfo = ssInfo.getSheetByName("Página1");
+        if (abaInfo) {
+            const dadosInfo = abaInfo.getDataRange().getValues();
+            for (let i = 0; i < dadosInfo.length; i++) {
+                if (String(dadosInfo[i][0]).trim() === String(maquina).trim()) {
+                    // Limpa a informação (Col B) e a data (Col C) na planilha externa
+                    abaInfo.getRange(i + 1, 2).clearContent();
+                    abaInfo.getRange(i + 1, 3).clearContent();
+                    break;
+                }
+            }
+        }
+    } catch (erroInfo) {
+        console.log("Erro ao apagar na planilha externa de informações: " + erroInfo.message);
+    }
+
+    return "Informação removida com sucesso.";
+  } catch(e) { return "Erro: " + e.message; }
 }
