@@ -283,6 +283,14 @@
       .extra-photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-top: 15px; }
       .extra-photo-container { position: relative; }
       .img-extra-thumb { width: 100%; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+      .extra-photo-caption {
+        margin-top: 6px;
+        font-size: 11px;
+        line-height: 1.35;
+        color: var(--texto-cinza);
+        text-align: left;
+        word-break: break-word;
+      }
       .btn-remove-extra { 
         position: absolute; top: -8px; right: -8px; 
         background: var(--vermelho-nok); color: white; 
@@ -355,6 +363,131 @@
       .alerta-card.alerta-error .btn-alerta-ok { background: var(--vermelho-nok); }
       .alerta-card.alerta-info .alerta-header { background: var(--azul-corretiva); }
       .alerta-card.alerta-info .btn-alerta-ok { background: var(--azul-corretiva); }
+
+      .comentario-foto-body {
+        padding: 24px;
+      }
+      .comentario-foto-body p {
+        margin-bottom: 14px;
+        color: var(--texto-cinza);
+        text-align: center;
+        font-size: 14px;
+      }
+      .comentario-foto-textarea {
+        min-height: 110px;
+        resize: vertical;
+        border-radius: 16px;
+        border: 2px solid #eef0f3;
+        background: #f8f9fa;
+        padding: 16px 18px;
+        font-size: 14px;
+        color: var(--texto-escuro);
+        width: 100%;
+        transition: all 0.2s ease;
+      }
+      .comentario-foto-textarea:focus {
+        outline: none;
+        border-color: var(--azul-corretiva);
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(0, 86, 179, 0.1);
+      }
+      .comentario-foto-textarea.input-invalido {
+        border-color: var(--vermelho-nok);
+        background: #fff5f5;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.12);
+      }
+      .comentario-foto-acoes {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        padding: 16px 20px;
+        background: #f8f9fa;
+        flex-wrap: wrap;
+      }
+      .btn-comentario-secundario,
+      .btn-comentario-primario {
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+      .btn-comentario-secundario {
+        background: #e9ecef;
+        color: var(--texto-escuro);
+      }
+      .btn-comentario-primario {
+        background: var(--azul-corretiva);
+        color: #fff;
+      }
+      .btn-comentario-secundario:hover,
+      .btn-comentario-primario:hover {
+        transform: translateY(-1px);
+      }
+      .btn-comentario-secundario:active,
+      .btn-comentario-primario:active {
+        transform: scale(0.98);
+      }
+      .btn-comentario-secundario:focus-visible,
+      .btn-comentario-primario:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(0, 86, 179, 0.15);
+      }
+      .lista-rascunhos-modal {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .item-rascunho-modal {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        text-align: left;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #f8fafc;
+      }
+      .item-rascunho-modal strong {
+        display: block;
+        color: #1f2937;
+        font-size: 15px;
+      }
+      .item-rascunho-modal span {
+        display: block;
+        margin-top: 3px;
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .btn-abrir-rascunho {
+        border: none;
+        background: linear-gradient(135deg, #4f8df7 0%, #2f5ec4 100%);
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        white-space: nowrap;
+      }
+      .btn-abrir-rascunho:active {
+        transform: scale(0.98);
+      }
+
+      #comentarioFotoModal.show {
+        display: flex;
+      }
+      #comentarioFotoModal .alerta-card {
+        transform: scale(0.9);
+        opacity: 0;
+        transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      #comentarioFotoModal.show .alerta-card {
+        transform: scale(1);
+        opacity: 1;
+      }
 
       /* Modal Confirmacao */
       #intelbrasConfirmModal { 
@@ -1275,13 +1408,13 @@
                   <div class="photo-item">
                       <input type="file" id="cameraPecaVelha" accept="image/*" capture="environment" class="hidden" onchange="handleFotoPeca(event, 'Velha')">
                       <img id="previewPecaVelha" class="photo-preview">
-                      <button id="btnCamPecaVelha" class="btn-camera-small" onclick="document.getElementById('cameraPecaVelha').click()"><i class="bi bi-camera"></i> PEÇA VELHA</button>
+                      <button type="button" id="btnCamPecaVelha" class="btn-camera-small" onclick="document.getElementById('cameraPecaVelha').click()"><i class="bi bi-camera"></i> PEÇA VELHA</button>
                       <span class="btn-remove-photo" id="removePecaVelha" onclick="removeFotoPeca('Velha')">Remover</span>
                   </div>
                   <div class="photo-item">
                       <input type="file" id="cameraPecaNova" accept="image/*" capture="environment" class="hidden" onchange="handleFotoPeca(event, 'Nova')">
                       <img id="previewPecaNova" class="photo-preview">
-                      <button id="btnCamPecaNova" class="btn-camera-small" onclick="document.getElementById('cameraPecaNova').click()"><i class="bi bi-camera-fill"></i> PEÇA NOVA</button>
+                      <button type="button" id="btnCamPecaNova" class="btn-camera-small" onclick="document.getElementById('cameraPecaNova').click()"><i class="bi bi-camera-fill"></i> PEÇA NOVA</button>
                       <span class="btn-remove-photo" id="removePecaNova" onclick="removeFotoPeca('Nova')">Remover</span>
                   </div>
               </div>
@@ -1290,15 +1423,12 @@
             <div class="form-group-corr">
               <label class="form-label-small">Enviar e-mail da corretiva?</label>
               <div class="btn-status-group mb-0" id="grupoEnviarEmailCorretiva">
-                <button class="btn-status" id="btnEnviarEmailSim" onclick="selecionarOpcaoEmailCorretiva(true)">
+                <button type="button" class="btn-status" id="btnEnviarEmailSim" onclick="selecionarOpcaoEmailCorretiva()">
                   <i class="bi bi-envelope-check"></i>
-                  <span>SIM</span>
-                </button>
-                <button class="btn-status" id="btnEnviarEmailNao" onclick="selecionarOpcaoEmailCorretiva(false)">
-                  <i class="bi bi-envelope-x"></i>
-                  <span>NÃO</span>
+                  <span>ENVIAR E-MAIL</span>
                 </button>
               </div>
+              <small class="text-muted d-block mt-2">Opcional. Por padrão, o e-mail não será enviado.</small>
             </div>
 
             <div class="toggle-peca" id="toggleServicoBtn" onclick="toggleArea('areaFotosServico', this)">
@@ -1310,19 +1440,19 @@
                   <div class="photo-item">
                       <input type="file" id="cameraServAntes" accept="image/*" capture="environment" class="hidden" onchange="handleFotoServico(event, 'Antes')">
                       <img id="previewServAntes" class="photo-preview">
-                      <button id="btnCamServAntes" class="btn-camera-small" onclick="document.getElementById('cameraServAntes').click()"><i class="bi bi-camera"></i> ANTES</button>
+                      <button type="button" id="btnCamServAntes" class="btn-camera-small" onclick="document.getElementById('cameraServAntes').click()"><i class="bi bi-camera"></i> ANTES</button>
                       <span class="btn-remove-photo" id="removeServAntes" onclick="removeFotoServico('Antes')">Remover</span>
                   </div>
                   <div class="photo-item">
                       <input type="file" id="cameraServDepois" accept="image/*" capture="environment" class="hidden" onchange="handleFotoServico(event, 'Depois')">
                       <img id="previewServDepois" class="photo-preview">
-                      <button id="btnCamServDepois" class="btn-camera-small" onclick="document.getElementById('cameraServDepois').click()"><i class="bi bi-camera-fill"></i> DEPOIS</button>
+                      <button type="button" id="btnCamServDepois" class="btn-camera-small" onclick="document.getElementById('cameraServDepois').click()"><i class="bi bi-camera-fill"></i> DEPOIS</button>
                       <span class="btn-remove-photo" id="removeServDepois" onclick="removeFotoServico('Depois')">Remover</span>
                   </div>
               </div>
               <div class="divisor">FOTOS EXTRAS</div>
               <input type="file" id="cameraExtra" accept="image/*" capture="environment" class="hidden" onchange="addMaisFoto(event)">
-              <button class="btn btn-outline-secondary w-100 p-2 rounded-3 fw-bold" onclick="document.getElementById('cameraExtra').click()">
+              <button type="button" class="btn btn-outline-secondary w-100 p-2 rounded-3 fw-bold" onclick="document.getElementById('cameraExtra').click()">
                   <i class="bi bi-plus-circle"></i> ADICIONAR MAIS FOTOS
               </button>
               <div class="extra-photos-grid" id="galeriaExtras"></div>
@@ -1333,7 +1463,7 @@
             <span id="textBtnSalvarCorr">SALVAR MANUTENÇÃO</span>
             <div id="spinnerBtnSalvarCorr" class="spinner-border spinner-border-sm hidden" role="status"></div>
         </button>
-        <div class="text-center"><a class="btn-voltar" onclick="toggleTelas('telaRegistroCorretiva', 'telaOpcoes')">Cancelar</a></div>
+        <div class="text-center"><a class="btn-voltar" onclick="confirmarCancelamentoCorretiva()">Cancelar</a></div>
       </div>
 
       <!-- TELA 4: DASHBOARD HISTÓRICO -->
@@ -1375,6 +1505,23 @@
 
     </div>
 
+    <div id="comentarioFotoModal" onclick="if(event.target === this) fecharModalComentarioFoto('')" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 12600; display: none; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(2px);">
+      <div class="alerta-card alerta-info" id="comentarioFotoCard" style="max-width: 460px; width: 100%;">
+        <div class="alerta-header">
+          <i class="bi bi-chat-left-text"></i>
+          <div style="font-weight:700; font-size: 20px;">Comentário da Foto</div>
+        </div>
+        <div class="comentario-foto-body">
+          <p>Se quiser, descreva rapidamente o que esta foto extra evidencia.</p>
+          <textarea id="comentarioFotoInput" class="comentario-foto-textarea" maxlength="300" placeholder="Ex.: conector queimado no lado direito, fiação refeita, vazamento identificado..."></textarea>
+        </div>
+        <div class="comentario-foto-acoes">
+          <button type="button" class="btn-comentario-secundario" id="btnComentarioFotoPular" onclick="fecharModalComentarioFoto('')">Sem comentário</button>
+          <button type="button" class="btn-comentario-primario" id="btnComentarioFotoSalvar" onclick="confirmarComentarioFoto()">Salvar comentário</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       // FUNÇÃO PARA ATIVAR TELA CHEIA - CORRIGIDA PARA iOS
       function openFullscreen() {
@@ -1400,7 +1547,10 @@
       
       let isFetchingMaquinas = false;
       let isFetchingOrdens = false;
-      let enviarEmailCorretivaSelecionado = true;
+      let enviarEmailCorretivaSelecionado = false;
+      let rascunhosPendentesCache = [];
+      let autoSaveCorretivaHabilitado = false;
+      let autoSavePreventivaHabilitado = false;
 
       // MELHORIA DE PRÉ-CARREGAMENTO SILENCIOSO NO DOMContentLoaded
       window.addEventListener('DOMContentLoaded', () => {
@@ -1460,24 +1610,38 @@
       }
 
       // FUNÇÃO DE CONFIRMAÇÃO CUSTOMIZADA (PARA O RASCUNHO E CANCELAMENTOS)
-      function exibirConfirmacao(titulo, texto, onYes, onNo) {
+      function exibirConfirmacao(titulo, texto, onYes, onNo, opcoes = {}) {
           const modal = document.getElementById('intelbrasConfirmModal');
           document.getElementById('confirmTitulo').innerText = titulo;
-          document.getElementById('confirmTexto').innerText = texto;
+
+          const textoEl = document.getElementById('confirmTexto');
+          if (opcoes.permitirHtml === true) {
+              textoEl.innerHTML = texto;
+          } else {
+              textoEl.innerText = texto;
+          }
+
+          const fecharConfirmacao = (callback) => {
+              modal.classList.remove('show');
+              setTimeout(() => {
+                  modal.style.display = 'none';
+                  if (callback) callback();
+              }, 150);
+          };
           
           const btnYes = document.getElementById('btnConfirmYes');
           const btnNo = document.getElementById('btnConfirmNo');
+          btnYes.style.display = '';
+          btnNo.style.display = '';
+          btnYes.innerText = opcoes.textoBotaoSim || 'SIM';
+          btnNo.innerText = opcoes.textoBotaoNao || 'NÃO';
           
           btnYes.onclick = function() {
-              modal.classList.remove('show');
-              setTimeout(() => modal.style.display = 'none', 150);
-              if(onYes) onYes();
+              fecharConfirmacao(onYes);
           };
           
           btnNo.onclick = function() {
-              modal.classList.remove('show');
-              setTimeout(() => modal.style.display = 'none', 150);
-              if(onNo) onNo();
+              fecharConfirmacao(onNo);
           };
           
           modal.style.display = 'flex';
@@ -1522,6 +1686,96 @@
       let modalIndexAtual = 0;
       let statusAreas = { areaPecas: false, areaFotosServico: false, areaFotoChamado: false };
       let fotosCorretiva = { pecaVelha: "", pecaNova: "", servAntes: "", servDepois: "", extras: [] };
+
+      function normalizarFotosExtrasCorretiva(extras) {
+        if (!Array.isArray(extras)) return [];
+        return extras.map(item => {
+          if (typeof item === 'string') return { imagem: item, comentario: '' };
+          if (item && typeof item === 'object') {
+            return {
+              imagem: item.imagem || item.url || '',
+              comentario: String(item.comentario || '').trim()
+            };
+          }
+          return { imagem: '', comentario: '' };
+        }).filter(item => item.imagem);
+      }
+
+      function solicitarComentarioFotoExtraCorretiva(callback) {
+        exibirConfirmacao(
+          'Comentário da Foto',
+          'Deseja adicionar um comentário para esta foto extra?',
+          () => abrirModalComentarioFoto(callback),
+          () => callback(''),
+          {
+            textoBotaoSim: 'ADICIONAR',
+            textoBotaoNao: 'AGORA NÃO'
+          }
+        );
+      }
+
+      let callbackComentarioFotoExtraCorretiva = null;
+
+      function abrirModalComentarioFoto(callback) {
+        callbackComentarioFotoExtraCorretiva = callback;
+        const modal = document.getElementById('comentarioFotoModal');
+        const input = document.getElementById('comentarioFotoInput');
+        input.value = '';
+        input.classList.remove('input-invalido');
+        modal.style.display = 'flex';
+        setTimeout(() => {
+          modal.classList.add('show');
+          input.focus();
+        }, 10);
+      }
+
+      document.addEventListener('keydown', function(event) {
+        const modalComentario = document.getElementById('comentarioFotoModal');
+        if (modalComentario && modalComentario.classList.contains('show')) {
+          if (event.key === 'Escape') {
+            fecharModalComentarioFoto('');
+            return;
+          }
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            confirmarComentarioFoto();
+            return;
+          }
+        }
+
+        const modalConfirmacao = document.getElementById('intelbrasConfirmModal');
+        if (modalConfirmacao && modalConfirmacao.classList.contains('show') && event.key === 'Escape') {
+          const btnNo = document.getElementById('btnConfirmNo');
+          if (btnNo && btnNo.style.display !== 'none') btnNo.click();
+        }
+      });
+
+      function fecharModalComentarioFoto(valor = '') {
+        const modal = document.getElementById('comentarioFotoModal');
+        const callback = callbackComentarioFotoExtraCorretiva;
+        callbackComentarioFotoExtraCorretiva = null;
+        modal.classList.remove('show');
+        setTimeout(() => {
+          modal.style.display = 'none';
+          if (callback) callback(String(valor || '').trim());
+        }, 150);
+      }
+
+      function confirmarComentarioFoto() {
+        const input = document.getElementById('comentarioFotoInput');
+        const valor = String(input.value || '');
+        const valorTrimado = valor.trim();
+
+        if (valor.length > 0 && valorTrimado === '') {
+          input.classList.add('input-invalido');
+          input.focus();
+          exibirMensagem('Aviso', 'O comentário não pode conter apenas espaços.', 'info');
+          return;
+        }
+
+        input.classList.remove('input-invalido');
+        fecharModalComentarioFoto(valorTrimado);
+      }
+
       let fotoChamado = "";
       let equipeAuxiliar = []; 
       let equipeAuxiliarPrev = []; // NOVO: Equipe da Preventiva
@@ -1633,25 +1887,44 @@
           icon.classList.add('spin-icon');
           btn.disabled = true;
 
-          document.getElementById('containerCardsMaquinas').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-success" role="status"></div><p class="mt-2 text-muted small">Sincronizando com as planilhas...</p></div>';
+          document.getElementById('containerCardsMaquinas').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-success" role="status"></div><p class="mt-2 text-muted small">Sincronizando catálogo de máquinas...</p></div>';
 
-          // Limpa os caches para forçar a busca real
           maquinasCache = [];
           ordensPendentes = [];
           localStorage.removeItem('intelbras_maquinasCache');
           if(tecAtu) localStorage.removeItem(`intelbras_ordensCache_${tecAtu}`);
 
-          buscarDadosDoServidor();
+          isFetchingMaquinas = true;
+          isFetchingOrdens = true;
 
-          // Aguarda finalização para renderizar
-          const checkFinish = setInterval(() => {
-              if(!isFetchingMaquinas && !isFetchingOrdens) {
-                  clearInterval(checkFinish);
-                  icon.classList.remove('spin-icon');
-                  btn.disabled = false;
-                  renderizarListaMaquinas(maquinasCache);
-              }
-          }, 300);
+          google.script.run
+            .withSuccessHandler((res) => {
+                if (!res || res.sucesso !== true) {
+                    throw new Error((res && res.erro) || 'Falha ao sincronizar catálogo');
+                }
+
+                isFetchingMaquinas = false;
+                isFetchingOrdens = false;
+                buscarDadosDoServidor();
+
+                const checkFinish = setInterval(() => {
+                    if(!isFetchingMaquinas && !isFetchingOrdens) {
+                        clearInterval(checkFinish);
+                        icon.classList.remove('spin-icon');
+                        btn.disabled = false;
+                        renderizarListaMaquinas(maquinasCache);
+                    }
+                }, 300);
+            })
+            .withFailureHandler((err) => {
+                isFetchingMaquinas = false;
+                isFetchingOrdens = false;
+                icon.classList.remove('spin-icon');
+                btn.disabled = false;
+                document.getElementById('containerCardsMaquinas').innerHTML = '<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle-fill"></i><p class="mt-2 small">Erro ao sincronizar catálogo de máquinas.</p></div>';
+                exibirMensagem('Erro', (err && err.message) || 'Não foi possível atualizar a lista de máquinas.', 'error');
+            })
+            .sincronizarCatalogoMaquinas();
       }
 
       // --- GERADOR DE PDF (COM HTML DEDICADO E CORREÇÕES DE QUEBRA DE PÁGINA) ---
@@ -1791,7 +2064,9 @@
                 if (d.fotosExtras && d.fotosExtras.length > 0) {
                      htmlPDF += `<div style="margin-top:15px; font-weight:bold; font-size:12px; color:#555;">Fotos Extras:</div><div class="pdf-images">`;
                      d.fotosExtras.forEach((ex, idx) => {
-                        htmlPDF += `<div class="pdf-img-box"><img src="${ex}" class="pdf-img"><div class="pdf-img-label">EXTRA ${idx+1}</div></div>`;
+                        const urlExtra = typeof ex === 'string' ? ex : ex.imagem;
+                        const comentarioExtra = ex && typeof ex === 'object' && ex.comentario ? `<div class="pdf-img-label">${String(ex.comentario).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '';
+                        htmlPDF += `<div class="pdf-img-box"><img src="${urlExtra}" class="pdf-img"><div class="pdf-img-label">EXTRA ${idx+1}</div>${comentarioExtra}</div>`;
                      });
                      htmlPDF += `</div>`;
                 }
@@ -2002,8 +2277,9 @@
         const r = historicoCache[histIndex];
         const d = JSON.parse(r.detalhes);
         const extras = d.fotosExtras || d.extrasGlobais; // Suporta tanto corretiva quanto preventiva
+        const extrasNormalizados = normalizarFotosExtrasCorretiva(extras);
         
-        modalImagens = extras.map((url, i) => ({ url: url, label: `EXTRA ${i+1}/${extras.length}` }));
+        modalImagens = extrasNormalizados.map((item, i) => ({ url: item.imagem, label: `EXTRA ${i+1}/${extrasNormalizados.length}` }));
         modalIndexAtual = photoIndex;
         
         atualizarModalImg();
@@ -2011,7 +2287,8 @@
       }
 
       function abrirGaleriaExtrasCriacao(photoIndex) {
-        modalImagens = fotosCorretiva.extras.map((url, i) => ({ url: url, label: `EXTRA ${i+1}/${fotosCorretiva.extras.length}` }));
+        const extrasNormalizados = normalizarFotosExtrasCorretiva(fotosCorretiva.extras);
+        modalImagens = extrasNormalizados.map((item, i) => ({ url: item.imagem, label: `EXTRA ${i+1}/${extrasNormalizados.length}` }));
         modalIndexAtual = photoIndex;
         
         atualizarModalImg();
@@ -2136,61 +2413,113 @@
         carregarMaquinas(); 
       }
 
-      function verificarRascunhosPendentes() {
-          let rascunhoEncontrado = null;
-          let tipoRascunho = null;
-          let maqRascunho = null;
-          let chaveRascunho = null;
+      function listarRascunhosPendentesDoTecnico() {
+          const rascunhos = [];
 
-          // Varre o navegador procurando um rascunho do técnico logado
           for (let i = 0; i < localStorage.length; i++) {
               const key = localStorage.key(i);
+              if (!key) continue;
+
               if (key.startsWith(`rascunho_corr_${tecAtu}_`)) {
-                  try { rascunhoEncontrado = JSON.parse(localStorage.getItem(key)); } catch(e) {}
-                  tipoRascunho = 'corretiva';
-                  maqRascunho = key.replace(`rascunho_corr_${tecAtu}_`, '');
-                  chaveRascunho = key;
-                  break;
+                  try {
+                      const candidato = JSON.parse(localStorage.getItem(key));
+                      if (temRascunhoCorretivaValido(candidato)) {
+                          rascunhos.push({
+                              tipo: 'corretiva',
+                              tipoTexto: 'Manutenção Corretiva',
+                              maquina: key.replace(`rascunho_corr_${tecAtu}_`, ''),
+                              chave: key,
+                              dados: candidato
+                          });
+                      } else {
+                          localStorage.removeItem(key);
+                      }
+                  } catch(e) {
+                      localStorage.removeItem(key);
+                  }
               } else if (key.startsWith(`rascunho_prev_${tecAtu}_`)) {
-                  try { rascunhoEncontrado = JSON.parse(localStorage.getItem(key)); } catch(e) {}
-                  tipoRascunho = 'preventiva';
-                  maqRascunho = key.replace(`rascunho_prev_${tecAtu}_`, '');
-                  chaveRascunho = key;
-                  break;
+                  try {
+                      const candidato = JSON.parse(localStorage.getItem(key));
+                      if (temRascunhoPreventivaValido(candidato)) {
+                          rascunhos.push({
+                              tipo: 'preventiva',
+                              tipoTexto: 'Preventiva',
+                              maquina: key.replace(`rascunho_prev_${tecAtu}_`, ''),
+                              chave: key,
+                              dados: candidato
+                          });
+                      } else {
+                          localStorage.removeItem(key);
+                      }
+                  } catch(e) {
+                      localStorage.removeItem(key);
+                  }
               }
           }
 
-          if (rascunhoEncontrado) {
-              let tipoTexto = tipoRascunho === 'corretiva' ? 'Manutenção Corretiva' : 'Preventiva';
-              
-              exibirConfirmacao("Rascunho Encontrado", `Você tem um registro de ${tipoTexto} pendente para a máquina ${maqRascunho}. Deseja continuar de onde parou?`, () => {
-                  // Clicou em SIM
-                  maqAtu = maqRascunho;
-                  document.getElementById('badgeMaq').innerText = "Máquina: " + maqAtu;
-                  
-                  if (tipoRascunho === 'corretiva') {
-                      // Busca top defeitos em background para os botões de atalho
-                      google.script.run.withSuccessHandler((dados) => {
-                          if(dados && dados.topDefeitos) topDefeitosCache = dados.topDefeitos;
-                          const contSugestoes = document.getElementById('sugestoesDefeito');
-                          if (topDefeitosCache.length > 0) {
-                              contSugestoes.innerHTML = '<span style="font-size:11px; color:#999; display:block; margin-bottom:5px;">Falhas comuns nesta máquina:</span>' + 
-                                  topDefeitosCache.map(d => `<span class="badge bg-light text-dark border me-1 mb-1 p-2 shadow-sm" style="cursor:pointer;" onclick="document.getElementById('defeitoCorr').value = '${d}'; salvarRascunhoCorretiva();">${d}</span>`).join('');
-                              contSugestoes.classList.remove('hidden');
-                          }
-                      }).buscarHistoricoMaquina(maqAtu);
-                      
-                      restaurarCorretivaDireto(rascunhoEncontrado);
-                  } else {
-                      restaurarPreventivaDireto(rascunhoEncontrado);
+          return rascunhos.sort((a, b) => a.maquina.localeCompare(b.maquina, 'pt-BR'));
+      }
+
+      function abrirRascunhoPendentePorIndice(indice) {
+          const rascunhoSelecionado = rascunhosPendentesCache[indice];
+          if (!rascunhoSelecionado) return;
+
+          const modal = document.getElementById('intelbrasConfirmModal');
+          modal.classList.remove('show');
+          setTimeout(() => modal.style.display = 'none', 150);
+
+          maqAtu = rascunhoSelecionado.maquina;
+          document.getElementById('badgeMaq').innerText = "Máquina: " + maqAtu;
+
+          if (rascunhoSelecionado.tipo === 'corretiva') {
+              google.script.run.withSuccessHandler((dados) => {
+                  if(dados && dados.topDefeitos) topDefeitosCache = dados.topDefeitos;
+                  const contSugestoes = document.getElementById('sugestoesDefeito');
+                  if (topDefeitosCache.length > 0) {
+                      contSugestoes.innerHTML = '<span style="font-size:11px; color:#999; display:block; margin-bottom:5px;">Falhas comuns nesta máquina:</span>' + 
+                          topDefeitosCache.map(d => `<span class="badge bg-light text-dark border me-1 mb-1 p-2 shadow-sm" style="cursor:pointer;" onclick="document.getElementById('defeitoCorr').value = '${d}'; salvarRascunhoCorretiva();">${d}</span>`).join('');
+                      contSugestoes.classList.remove('hidden');
                   }
-              }, () => {
-                  // Clicou em NÃO (Exclui o rascunho e segue a vida)
-                  localStorage.removeItem(chaveRascunho);
-                  irParaTelaQRCodeNormal();
-              });
+              }).buscarHistoricoMaquina(maqAtu);
+
+              restaurarCorretivaDireto(rascunhoSelecionado.dados);
           } else {
-              // Sem rascunhos, segue a vida normal
+              restaurarPreventivaDireto(rascunhoSelecionado.dados);
+          }
+      }
+
+      function verificarRascunhosPendentes() {
+          const rascunhos = listarRascunhosPendentesDoTecnico();
+          rascunhosPendentesCache = rascunhos;
+
+          if (rascunhos.length > 0) {
+              const listaHtml = `<div class="lista-rascunhos-modal">${rascunhos.map((r, idx) => {
+                  return `<div class="item-rascunho-modal">
+                      <div style="flex:1; min-width:0;">
+                          <strong>${idx + 1}. ${r.maquina}</strong>
+                          <span>${r.tipoTexto}</span>
+                      </div>
+                      <button type="button" class="btn-abrir-rascunho" onclick="abrirRascunhoPendentePorIndice(${idx})">ESCOLHER</button>
+                  </div>`;
+              }).join('')}</div>`;
+
+              exibirConfirmacao(
+                  "Rascunhos Encontrados",
+                  `Você possui <strong>${rascunhos.length}</strong> rascunho(s) pendente(s) para o técnico <strong>${tecAtu}</strong>.<br><br>${listaHtml}`,
+                  null,
+                  () => {
+                      irParaTelaQRCodeNormal();
+                  },
+                  {
+                      permitirHtml: true,
+                      textoBotaoSim: 'FECHAR',
+                      textoBotaoNao: 'AGORA NÃO'
+                  }
+              );
+
+              const btnYes = document.getElementById('btnConfirmYes');
+              if (btnYes) btnYes.style.display = 'none';
+          } else {
               irParaTelaQRCodeNormal();
           }
       }
@@ -2212,6 +2541,7 @@
           
           statusAreas = r.areas || { areaPecas: false, areaFotosServico: false };
           fotosCorretiva = r.fotos || { pecaVelha: "", pecaNova: "", servAntes: "", servDepois: "", extras: [] };
+          fotosCorretiva.extras = normalizarFotosExtrasCorretiva(fotosCorretiva.extras);
           
           // Restaura Toggles visualmente
           const pecaDiv = document.getElementById('areaPecas');
@@ -2242,18 +2572,27 @@
               servicoBtn.querySelector('.icon-tgl').style.transform = "rotate(0deg)";
               servicoBtn.querySelector('.icon-tgl').style.color = "#ccc";
           }
+
+          if (r.enviarEmail === true) {
+              enviarEmailCorretivaSelecionado = true;
+              const btnSim = document.getElementById('btnEnviarEmailSim');
+              if (btnSim) btnSim.classList.add('selected-ok');
+          } else {
+              limparSelecaoEmailCorretiva();
+          }
           
           calcularDowntime(); 
           renderFotosCorretiva(); 
           renderGaleriaExtras(); 
           renderEquipe();
           
-          toggleTelas('telaSelecao', 'telaRegistroCorretiva');
+          toggleTelas('telaOpcoes', 'telaRegistroCorretiva');
           exibirMensagem("Restaurado", "O seu rascunho de corretiva foi recuperado.", "success");
       }
 
       // CORREÇÃO: Função restaurarPreventivaDireto restaurando a Ordem também
       function restaurarPreventivaDireto(r) {
+          autoSavePreventivaHabilitado = true;
           checklistItems = r.items;
           checklistAnswers = r.answers;
           currentStep = r.step;
@@ -2756,10 +3095,13 @@
       }
 
       // FUNÇÃO DE RASCUNHO CORRETIVA (Auto-Save)
-      function salvarRascunhoCorretiva() {
-          if (!tecAtu || !maqAtu) return;
-          
-          const rascunho = {
+      function obterChaveRascunhoCorretiva() {
+          if (!tecAtu || !maqAtu) return null;
+          return `rascunho_corr_${tecAtu}_${maqAtu}`;
+      }
+
+      function montarRascunhoCorretivaAtual() {
+          return {
               dtInicio: document.getElementById('dataInicioCorr').value,
               hrInicio: document.getElementById('horaInicioCorr').value,
               dtFim: document.getElementById('dataFimCorr').value,
@@ -2773,45 +3115,135 @@
               fotos: fotosCorretiva,
               enviarEmail: enviarEmailCorretivaSelecionado
           };
+      }
+
+      function removerRascunhoCorretivaAtual() {
+          const chaveRascunho = obterChaveRascunhoCorretiva();
+          if (chaveRascunho) localStorage.removeItem(chaveRascunho);
+      }
+
+      function salvarRascunhoCorretiva(forcar = false) {
+          const chaveRascunho = obterChaveRascunhoCorretiva();
+          if (!chaveRascunho) return;
+          if (!forcar && !autoSaveCorretivaHabilitado) return;
+
+          const rascunho = montarRascunhoCorretivaAtual();
+          if (!temRascunhoCorretivaValido(rascunho)) {
+              localStorage.removeItem(chaveRascunho);
+              return;
+          }
           
           try {
-              localStorage.setItem(`rascunho_corr_${tecAtu}_${maqAtu}`, JSON.stringify(rascunho));
+              localStorage.setItem(chaveRascunho, JSON.stringify(rascunho));
           } catch(e) {
               console.warn("Memória cheia no iOS ao salvar rascunho:", e);
           }
       }
 
-      // CORREÇÃO: Função salvarRascunhoPreventiva com a Ordem inclusa
-      function salvarRascunhoPreventiva() {
-          if (!tecAtu || !maqAtu || !checklistItems.length) return;
-          const rascunho = {
+      function obterChaveRascunhoPreventiva() {
+          if (!tecAtu || !maqAtu) return null;
+          return `rascunho_prev_${tecAtu}_${maqAtu}`;
+      }
+
+      function montarRascunhoPreventivaAtual() {
+          return {
               items: checklistItems,
               answers: checklistAnswers,
               step: currentStep,
               type: checklistType,
               equipe: equipeAuxiliarPrev,
               startTime: checklistStartTime ? checklistStartTime.getTime() : new Date().getTime(),
-              ordemID: ordemAtuParaSalvar // <--- CORREÇÃO: Salvando o ID da Ordem no rascunho
+              ordemID: ordemAtuParaSalvar
           };
+      }
+
+      function temRascunhoPreventivaValido(r) {
+          if (!r || typeof r !== 'object') return false;
+
+          const itens = Array.isArray(r.items) ? r.items : [];
+          const respostas = Array.isArray(r.answers) ? r.answers : [];
+          const equipe = Array.isArray(r.equipe) ? r.equipe : [];
+
+          if (!itens.length || !respostas.length) return false;
+          if (itens.length !== respostas.length) return false;
+
+          const temEquipe = equipe.length > 0;
+          const temOrdem = String(r.ordemID || '').trim() !== '';
+          const temRespostasPreenchidas = respostas.some(resp => {
+              if (!resp || typeof resp !== 'object') return false;
+
+              const temStatus = resp.status !== null && resp.status !== undefined && String(resp.status).trim() !== '' && resp.status !== 'OBS';
+              const temObs = String(resp.obs || '').trim() !== '';
+              const temFotoAntes = String(resp.photoAntes || '').trim() !== '';
+              const temFotoDepois = String(resp.photoDepois || '').trim() !== '';
+              const temExtras = Array.isArray(resp.extras) && resp.extras.length > 0;
+
+              return temStatus || temObs || temFotoAntes || temFotoDepois || temExtras;
+          });
+
+          return temEquipe || temOrdem || temRespostasPreenchidas;
+      }
+
+      function removerRascunhoPreventivaAtual() {
+          const chaveRascunho = obterChaveRascunhoPreventiva();
+          if (chaveRascunho) localStorage.removeItem(chaveRascunho);
+      }
+
+      // CORREÇÃO: Função salvarRascunhoPreventiva com a Ordem inclusa
+      function salvarRascunhoPreventiva(forcar = false) {
+          const chaveRascunho = obterChaveRascunhoPreventiva();
+          if (!chaveRascunho || !checklistItems.length) return;
+          if (!forcar && !autoSavePreventivaHabilitado) return;
+
+          const rascunho = montarRascunhoPreventivaAtual();
+          if (!temRascunhoPreventivaValido(rascunho)) {
+              localStorage.removeItem(chaveRascunho);
+              return;
+          }
+
           try {
-              localStorage.setItem(`rascunho_prev_${tecAtu}_${maqAtu}`, JSON.stringify(rascunho));
+              localStorage.setItem(chaveRascunho, JSON.stringify(rascunho));
           } catch(e) {
               console.warn("Memória cheia no iOS ao salvar rascunho:", e);
           }
       }
 
-      function selecionarOpcaoEmailCorretiva(valor) {
-        enviarEmailCorretivaSelecionado = !!valor;
+      function selecionarOpcaoEmailCorretiva() {
+        enviarEmailCorretivaSelecionado = !enviarEmailCorretivaSelecionado;
         const btnSim = document.getElementById('btnEnviarEmailSim');
-        const btnNao = document.getElementById('btnEnviarEmailNao');
-        if (!btnSim || !btnNao) return;
+        if (!btnSim) return;
 
         btnSim.classList.toggle('selected-ok', enviarEmailCorretivaSelecionado === true);
-        btnNao.classList.toggle('selected-nok', enviarEmailCorretivaSelecionado === false);
         salvarRascunhoCorretiva();
       }
 
+      function limparSelecaoEmailCorretiva() {
+        enviarEmailCorretivaSelecionado = false;
+        const btnSim = document.getElementById('btnEnviarEmailSim');
+        if (!btnSim) return;
+
+        btnSim.classList.remove('selected-ok');
+      }
+
+      function temRascunhoCorretivaValido(r) {
+        if (!r || typeof r !== 'object') return false;
+
+        const temTexto = [r.defeito, r.causa, r.acao, r.descPeca].some(v => String(v || '').trim() !== '');
+        const temEquipe = Array.isArray(r.equipe) && r.equipe.some(nome => String(nome || '').trim() !== '');
+        const fotos = r.fotos || {};
+        const extrasNormalizadas = normalizarFotosExtrasCorretiva(fotos.extras);
+        const temFotos = [fotos.pecaVelha, fotos.pecaNova, fotos.servAntes, fotos.servDepois]
+          .some(foto => String(foto || '').trim() !== '') || extrasNormalizadas.length > 0;
+        const temEmailMarcado = r.enviarEmail === true;
+
+        // IMPORTANTE: data/hora padrão e áreas abertas/fechadas não devem, sozinhas,
+        // gerar rascunho. Só consideramos rascunho quando houver conteúdo realmente
+        // alterado pelo usuário.
+        return temTexto || temEquipe || temFotos || temEmailMarcado;
+      }
+
       function irParaRegistroCorretiva() {
+        autoSaveCorretivaHabilitado = false;
         document.getElementById('maqCorretivaNome').innerText = maqAtu;
         const agora = new Date();
         const yyyy = agora.getFullYear(), mm = String(agora.getMonth() + 1).padStart(2, '0'), dd = String(agora.getDate()).padStart(2, '0'), hh = String(agora.getHours()).padStart(2, '0'), min = String(agora.getMinutes()).padStart(2, '0');
@@ -2828,7 +3260,8 @@
         equipeAuxiliar = []; 
         statusAreas = { areaPecas: false, areaFotosServico: false };
         fotosCorretiva = { pecaVelha: "", pecaNova: "", servAntes: "", servDepois: "", extras: [] };
-        enviarEmailCorretivaSelecionado = true;
+        enviarEmailCorretivaSelecionado = false;
+        limparSelecaoEmailCorretiva();
         
         document.getElementById('areaPecas').classList.remove('show'); document.getElementById('togglePecaBtn').classList.remove('active');
         document.getElementById('areaFotosServico').classList.remove('show'); document.getElementById('toggleServicoBtn').classList.remove('active');
@@ -2840,23 +3273,30 @@
         if (rascunhoStr) {
             try {
                 const r = JSON.parse(rascunhoStr);
-                
-                exibirConfirmacao("Rascunho Localizado", "Encontrámos um registo que não foi guardado. Deseja restaurar as informações e fotos de onde parou?", () => {
-                    restaurarCorretivaDireto(r);
-                    selecionarOpcaoEmailCorretiva(r.enviarEmail !== false);
-                }, () => {
-                    // Clicou NÃO (Limpar Rascunho)
+                if (temRascunhoCorretivaValido(r)) {
+                    exibirConfirmacao("Rascunho Localizado", "Encontrámos um registo que não foi guardado. Deseja restaurar as informações e fotos de onde parou?", () => {
+                        autoSaveCorretivaHabilitado = true;
+                        restaurarCorretivaDireto(r);
+                    }, () => {
+                        // Clicou NÃO (Limpar Rascunho)
+                        localStorage.removeItem(`rascunho_corr_${tecAtu}_${maqAtu}`);
+                        autoSaveCorretivaHabilitado = true;
+                        limparSelecaoEmailCorretiva();
+                        calcularDowntime(); renderFotosCorretiva(); renderGaleriaExtras(); renderEquipe();
+                        carregarSugestoesEExibirCorretiva();
+                    });
+                    return; // Evita executar o resto antes de responder
+                } else {
                     localStorage.removeItem(`rascunho_corr_${tecAtu}_${maqAtu}`);
-                    selecionarOpcaoEmailCorretiva(true);
-                    calcularDowntime(); renderFotosCorretiva(); renderGaleriaExtras(); renderEquipe();
-                    carregarSugestoesEExibirCorretiva();
-                });
-                return; // Evita executar o resto antes de responder
-            } catch(e) {}
+                }
+            } catch(e) {
+                localStorage.removeItem(`rascunho_corr_${tecAtu}_${maqAtu}`);
+            }
         } 
         
         // Fluxo Normal (Se não tem rascunho)
-        selecionarOpcaoEmailCorretiva(enviarEmailCorretivaSelecionado);
+        autoSaveCorretivaHabilitado = true;
+        limparSelecaoEmailCorretiva();
         calcularDowntime(); renderFotosCorretiva(); renderGaleriaExtras(); renderEquipe();
         carregarSugestoesEExibirCorretiva();
       }
@@ -2887,7 +3327,6 @@
             icon.style.transform = "rotate(0deg)";
             icon.style.color = "#ccc";
         }
-        salvarRascunhoCorretiva(); // Salva rascunho ao abrir/fechar as gavetas
       }
 
       function calcularDowntime() {
@@ -2936,19 +3375,26 @@
 
       function addMaisFoto(event) {
         const file = event.target.files[0]; if (!file) return;
+        const input = event.target;
         const reader = new FileReader(); reader.onload = (e) => {
           compressImage(e.target.result).then(compressed => {
-            fotosCorretiva.extras.push(compressed); renderGaleriaExtras(); salvarRascunhoCorretiva(); // Salva rascunho com a foto extra
+            solicitarComentarioFotoExtraCorretiva((comentario) => {
+              fotosCorretiva.extras.push({ imagem: compressed, comentario });
+              renderGaleriaExtras();
+              salvarRascunhoCorretiva(); // Salva rascunho com a foto extra
+              input.value = ""; // limpa somente após concluir o fluxo visual
+            });
           });
         }; reader.readAsDataURL(file);
-        event.target.value = ""; // MEMORY FIX
       }
       function removeMaisFoto(index) { fotosCorretiva.extras.splice(index, 1); renderGaleriaExtras(); salvarRascunhoCorretiva(); }
 
       function renderGaleriaExtras() {
         const gal = document.getElementById('galeriaExtras'); gal.innerHTML = "";
-        fotosCorretiva.extras.forEach((src, idx) => {
-          gal.innerHTML += `<div class="extra-photo-container"><img src="${src}" class="img-extra-thumb" onclick="abrirGaleriaExtrasCriacao(${idx})"><button class="btn-remove-extra" onclick="removeMaisFoto(${idx})">&times;</button></div>`;
+        fotosCorretiva.extras = normalizarFotosExtrasCorretiva(fotosCorretiva.extras);
+        fotosCorretiva.extras.forEach((fotoExtra, idx) => {
+          const comentarioHtml = fotoExtra.comentario ? `<div class="extra-photo-caption">${fotoExtra.comentario.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '';
+          gal.innerHTML += `<div class="extra-photo-container"><img src="${fotoExtra.imagem}" class="img-extra-thumb" onclick="abrirGaleriaExtrasCriacao(${idx})"><button class="btn-remove-extra" onclick="removeMaisFoto(${idx})">&times;</button>${comentarioHtml}</div>`;
         });
       }
 
@@ -3046,7 +3492,7 @@
           temFotosServico: statusAreas.areaFotosServico,
           fotoServAntes: statusAreas.areaFotosServico ? fotosCorretiva.servAntes : "",
           fotoServDepois: statusAreas.areaFotosServico ? fotosCorretiva.servDepois : "",
-          fotosExtras: statusAreas.areaFotosServico ? fotosCorretiva.extras : []
+          fotosExtras: statusAreas.areaFotosServico ? normalizarFotosExtrasCorretiva(fotosCorretiva.extras) : []
         };
         google.script.run.withSuccessHandler((msg) => { 
             btn.disabled = false; 
@@ -3054,7 +3500,8 @@
             exibirMensagem("Sucesso", msg); 
             
             // LIMPA O RASCUNHO QUANDO O SALVAMENTO É BEM SUCEDIDO
-            localStorage.removeItem(`rascunho_corr_${tecAtu}_${maqAtu}`);
+            autoSaveCorretivaHabilitado = false;
+            removerRascunhoCorretivaAtual();
             
             // LIMPEZA DA MEMORIA APOS SUCESSO DO UPLOAD!
             fotosCorretiva = { pecaVelha: "", pecaNova: "", servAntes: "", servDepois: "", extras: [] };
@@ -3201,7 +3648,11 @@
                 if (d.fotoServDepois) cont.innerHTML += `<div class="p-2 border rounded mb-2 bg-light"><strong>Serviço Executado:</strong><br><img src="${d.fotoServDepois}" class="img-detail" onclick="abrirFotoGrande('${d.fotoServAntes||""}', '${d.fotoServDepois}')"></div>`;
                 if (d.fotosExtras && d.fotosExtras.length > 0) {
                     let extH = '<div class="extra-photos-grid">';
-                    d.fotosExtras.forEach((ex, idx) => extH += `<img src="${ex}" class="img-extra-thumb" onclick="abrirGaleriaExtras(${index}, ${idx})">`);
+                    d.fotosExtras.forEach((ex, idx) => {
+                        const urlExtra = typeof ex === 'string' ? ex : ex.imagem;
+                        const comentarioExtra = ex && typeof ex === 'object' && ex.comentario ? `<div class="extra-photo-caption">${String(ex.comentario).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '';
+                        extH += `<div><img src="${urlExtra}" class="img-extra-thumb" onclick="abrirGaleriaExtras(${index}, ${idx})">${comentarioExtra}</div>`;
+                    });
                     cont.innerHTML += extH + '</div>';
                 }
             }
@@ -3323,23 +3774,35 @@
       }
       
       function iniciarWizardPreventiva() {
+        autoSavePreventivaHabilitado = false;
         document.getElementById('badgePrev').innerText = maqAtu; 
 
         // VERIFICA RASCUNHO MANUAL NA PREVENTIVA
-        const rascunhoStr = localStorage.getItem(`rascunho_prev_${tecAtu}_${maqAtu}`);
+        const chaveRascunho = obterChaveRascunhoPreventiva();
+        const rascunhoStr = chaveRascunho ? localStorage.getItem(chaveRascunho) : null;
         if (rascunhoStr) {
-             exibirConfirmacao("Rascunho Localizado", "Você tem um checklist de preventiva em andamento. Deseja continuar de onde parou?", () => {
-                 restaurarPreventivaDireto(JSON.parse(rascunhoStr));
-             }, () => {
-                 localStorage.removeItem(`rascunho_prev_${tecAtu}_${maqAtu}`);
-                 iniciarPreventivaNova();
-             });
-        } else {
-             iniciarPreventivaNova();
+             try {
+                 const rascunho = JSON.parse(rascunhoStr);
+                 if (temRascunhoPreventivaValido(rascunho)) {
+                     exibirConfirmacao("Rascunho Localizado", "Você tem um checklist de preventiva em andamento. Deseja continuar de onde parou?", () => {
+                         restaurarPreventivaDireto(rascunho);
+                     }, () => {
+                         localStorage.removeItem(chaveRascunho);
+                         iniciarPreventivaNova();
+                     });
+                     return;
+                 }
+             } catch(e) {
+             }
+
+             localStorage.removeItem(chaveRascunho);
         }
+
+        iniciarPreventivaNova();
       }
 
       function iniciarPreventivaNova() {
+        autoSavePreventivaHabilitado = true;
         checklistStartTime = new Date();
         
         toggleTelas('telaValidacaoOrdem', 'telaPreventiva');
@@ -3369,8 +3832,6 @@
           });
 
           currentStep = 0; 
-          
-          salvarRascunhoPreventiva(); // Cria rascunho inicial
           
           document.getElementById('wizardLoading').classList.add('hidden'); 
           document.getElementById('wizardContent').classList.remove('hidden');
@@ -3488,7 +3949,6 @@
       }
       function finalizarWizard() {
         checklistAnswers[currentStep].obs = document.getElementById('obsInput').value;
-        salvarRascunhoPreventiva(); // Salva estado final
         
         const endTime = new Date();
         const diff = endTime - checklistStartTime;
@@ -3504,7 +3964,8 @@
         document.getElementById('wizardContent').classList.add('hidden'); document.getElementById('wizardLoading').classList.remove('hidden');
         google.script.run.withSuccessHandler((msg) => { 
             exibirMensagem("Concluído", msg); 
-            localStorage.removeItem(`rascunho_prev_${tecAtu}_${maqAtu}`); // Limpa rascunho
+            autoSavePreventivaHabilitado = false;
+            removerRascunhoPreventivaAtual();
             
             // LIMPEZA DA MEMORIA APOS SUCESSO DO UPLOAD
             checklistAnswers = []; 
@@ -3520,17 +3981,58 @@
             "Sair cancelará o checklist em andamento. Deseja continuar?", 
             () => {
                 // Clicou SIM, quero cancelar e descartar
-                localStorage.removeItem(`rascunho_prev_${tecAtu}_${maqAtu}`);
+                autoSavePreventivaHabilitado = false;
+                removerRascunhoPreventivaAtual();
                 toggleTelas('telaPreventiva', 'telaOpcoes');
             }
         );
       }
 
+      function confirmarCancelamentoCorretiva() {
+        exibirConfirmacao(
+            "Cancelar Corretiva",
+            "Ao cancelar, o rascunho desta corretiva será removido. Deseja continuar?",
+            () => {
+                autoSaveCorretivaHabilitado = false;
+                removerRascunhoCorretivaAtual();
+                fotosCorretiva = { pecaVelha: "", pecaNova: "", servAntes: "", servDepois: "", extras: [] };
+                toggleTelas('telaRegistroCorretiva', 'telaOpcoes');
+            }
+        );
+      }
+
+      function persistirRascunhoCorretivaAoSair() {
+        if (!autoSaveCorretivaHabilitado) return;
+        if (document.getElementById('telaRegistroCorretiva').classList.contains('hidden')) return;
+        salvarRascunhoCorretiva(true);
+      }
+
+      function persistirRascunhoPreventivaAoSair() {
+        if (!autoSavePreventivaHabilitado) return;
+        if (document.getElementById('telaPreventiva').classList.contains('hidden')) return;
+        salvarRascunhoPreventiva(true);
+      }
+
+      window.addEventListener('beforeunload', () => {
+        persistirRascunhoCorretivaAoSair();
+        persistirRascunhoPreventivaAoSair();
+      });
+      window.addEventListener('pagehide', () => {
+        persistirRascunhoCorretivaAoSair();
+        persistirRascunhoPreventivaAoSair();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            persistirRascunhoCorretivaAoSair();
+            persistirRascunhoPreventivaAoSair();
+        }
+      });
+
       function toggleTelas(s, e) {
         openFullscreen(); 
         document.getElementById('cardPrincipal').style.opacity = '0'; 
         setTimeout(() => { 
-            document.getElementById(s).classList.add('hidden'); 
+            document.querySelectorAll('#cardPrincipal > div[id^="tela"]').forEach(tela => tela.classList.add('hidden'));
             document.getElementById(e).classList.remove('hidden'); 
             document.getElementById('cardPrincipal').style.opacity = '1'; 
         }, 150); // Reduzido para navegação mais rápida
