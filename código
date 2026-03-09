@@ -148,54 +148,192 @@ function verificarSenhaTecnico(tecnico, senhaInformada) {
 }
 
 /**
- * LISTAR MÁQUINAS COM LOCALIZAÇÃO (N2) E SUBÁREA (N3)
- * Agora retorna um objeto com metadados para montar os cards
+ * MONTA UM MAPA COM O STATUS MAIS RELEVANTE DAS ORDENS POR MÁQUINA
+ * Prioridade: ATRASADO > EM DIA
+ */
+function montarMapaStatusOrdens() {
+  const mapaStatus = {};
+  const ssOrdens = getSSOrdens();
+  const abasOrdens = ["MF+INJ", "TESTE", "SMT", "MOLDE"];
+
+  abasOrdens.forEach(nomeAba => {
+    const aba = ssOrdens.getSheetByName(nomeAba);
+    if (!aba) return;
+
+    const dados = aba.getDataRange().getValues();
+    if (!dados || dados.length < 2) return;
+    dados.shift();
+
+    dados.forEach(row => {
+      const txtOrdem = String(row[0] || "").trim();
+      const txtStatus = String(row[5] || "").trim();
+      if (!txtOrdem) return;
+
+      const statusNorm = normalizarTexto(txtStatus);
+      const isConcluido =
+        statusNorm.includes("CONCLUIDO") ||
+        statusNorm.includes("CONCLUIDA") ||
+        statusNorm.includes("CONFIRMADO") ||
+        statusNorm.includes("FINALIZADO") ||
+        statusNorm.includes("FINALIZADA") ||
+        statusNorm.includes("ENCERRADO") ||
+        statusNorm.includes("ENCERRADA") ||
+        statusNorm.includes("FECHADO") ||
+        statusNorm.includes("FECHADA");
+
+      const isAtrasado =
+        statusNorm.includes("ATRASO") ||
+        statusNorm.includes("ATRASADA") ||
+        statusNorm.includes("ATRASADO");
+
+      const isEmDia = statusNorm.includes("EM DIA");
+
+      if (isConcluido || (!isAtrasado && !isEmDia)) return;
+
+      const nomeMaquina = txtOrdem.split('(')[0].trim();
+      if (!nomeMaquina) return;
+
+      const chave = normalizarTexto(nomeMaquina);
+      const statusAtual = mapaStatus[chave];
+
+      if (isAtrasado) {
+        mapaStatus[chave] = "ATRASADO";
+      } else if (!statusAtual) {
+        mapaStatus[chave] = "EM DIA";
+      }
+    });
+  });
+
+  return mapaStatus;
+}
+
+/**
+ * SINCRONIZA A ABA "maquinas" A PARTIR DAS ABAS REAIS DAS PLANILHAS
+ * Estrutura gerada:
+ * A = Máquina | B = Status Ordem | C = Área | D = Subárea | E = Origem
+ */
+function sincronizarCatalogoMaquinas() {
+  try {
+    const ssPrincipal = getSS();
+    let sheetCatalogo = ssPrincipal.getSheetByName("maquinas");
+    if (!sheetCatalogo) {
+      sheetCatalogo = ssPrincipal.insertSheet("maquinas");
+    }
+
+    const namesToIgnore = [
+      "LOG_SISTEMA", "REGISTROS_MANUTENCAO", "LOG_ACESSO", "MANUTENCOES", "Página1", "Sheet1",
+      "REGISTROS_PREVENTIVA", "HISTORICO_CORRETIVAS", "DASHBOARD", "maquinas"
+    ];
+
+    const planilhas = [
+      { ss: getSS(), origem: "INDUSTRIAL" },
+      { ss: getSSSetup(), origem: "SETUP" },
+      { ss: getSS_SMT(), origem: "SMT" },
+      { ss: getSS_TESTE(), origem: "TESTE" },
+      { ss: getSS_FERRAMENTARIA(), origem: "FERRAMENTARIA" }
+    ];
+
+    const mapaStatusOrdens = montarMapaStatusOrdens();
+    const mapaMaquinas = {};
+
+    planilhas.forEach(item => {
+      if (!item.ss) return;
+
+      item.ss.getSheets().forEach(s => {
+        const nome = String(s.getName() || "").trim();
+        if (!nome || namesToIgnore.includes(nome)) return;
+
+        let area = "Geral";
+        let subarea = "";
+
+        try {
+          const metaData = s.getRange("N2:N3").getValues();
+          if (metaData[0][0]) area = String(metaData[0][0]).trim() || "Geral";
+          if (metaData[1][0]) subarea = String(metaData[1][0]).trim();
+        } catch (e) {}
+
+        const chave = normalizarTexto(nome);
+        const statusOrdem = mapaStatusOrdens[chave] || "SEM ORDEM";
+
+        mapaMaquinas[chave] = [nome, statusOrdem, area, subarea, item.origem];
+      });
+    });
+
+    const linhas = Object.keys(mapaMaquinas)
+      .map(chave => mapaMaquinas[chave])
+      .sort((a, b) => {
+        const areaA = String(a[2] || "");
+        const areaB = String(b[2] || "");
+        if (areaA < areaB) return -1;
+        if (areaA > areaB) return 1;
+        return String(a[0] || "").localeCompare(String(b[0] || ""));
+      });
+
+    sheetCatalogo.clearContents();
+    sheetCatalogo.getRange(1, 1, 1, 5).setValues([['Máquina', 'Status Ordem', 'Área', 'Subárea', 'Origem']]);
+    sheetCatalogo.getRange('A1:E1').setBackground('#00AA4E').setFontColor('white').setFontWeight('bold');
+
+    if (linhas.length > 0) {
+      sheetCatalogo.getRange(2, 1, linhas.length, 5).setValues(linhas);
+    }
+
+    return { sucesso: true, total: linhas.length };
+  } catch (e) {
+    return { sucesso: false, erro: e.message };
+  }
+}
+
+/**
+ * LISTAR MÁQUINAS A PARTIR DA ABA "maquinas"
+ * Estrutura esperada:
+ * A = Máquina | B = Status Ordem | C = Área | D = Subárea | E = Origem
  */
 function listarMaquinas() {
   try {
-    const namesToIgnore = ["LOG_SISTEMA", "REGISTROS_MANUTENCAO", "LOG_ACESSO", "MANUTENCOES", "Página1", "Sheet1", "REGISTROS_PREVENTIVA", "HISTORICO_CORRETIVAS", "DASHBOARD"];
-    
-    // Lista de planilhas para percorrer (Incluindo Ferramentaria)
-    const planilhas = [getSS(), getSSSetup(), getSS_SMT(), getSS_TESTE(), getSS_FERRAMENTARIA()];
-    
-    let listaCompleta = [];
+    const sheet = getSS().getSheetByName("maquinas");
+    if (!sheet) {
+      return [{ nome: "Aba 'maquinas' não encontrada", area: "Erro", subarea: "" }];
+    }
 
-    planilhas.forEach(ss => {
-        if(!ss) return;
-        const sheets = ss.getSheets();
-        
-        sheets.forEach(s => {
-            const nome = s.getName().trim();
-            if (!namesToIgnore.includes(nome)) {
-                // Tenta ler N2 e N3 para categorização
-                let local = "Geral";
-                let subarea = "";
-                
-                try {
-                    const metaData = s.getRange("N2:N3").getValues();
-                    if(metaData[0][0]) local = String(metaData[0][0]).trim();
-                    if(metaData[1][0]) subarea = String(metaData[1][0]).trim();
-                } catch(e) {}
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return [];
+    }
 
-                listaCompleta.push({
-                    nome: nome,
-                    area: local || "Outros",
-                    subarea: subarea
-                });
-            }
-        });
+    const dados = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+    const mapaMaquinas = {};
+
+    dados.forEach(linha => {
+      const nome = String(linha[0] || "").trim();
+      const area = String(linha[2] || "").trim() || "Geral";
+      const subarea = String(linha[3] || "").trim();
+
+      if (!nome) return;
+
+      const chave = normalizarTexto(nome);
+      if (!mapaMaquinas[chave]) {
+        mapaMaquinas[chave] = {
+          nome: nome,
+          area: area,
+          subarea: subarea
+        };
+      }
     });
 
+    const listaCompleta = Object.keys(mapaMaquinas).map(chave => mapaMaquinas[chave]);
+
     listaCompleta.sort((a, b) => {
-        if (a.area < b.area) return -1;
-        if (a.area > b.area) return 1;
-        return a.nome.localeCompare(b.nome);
+      const areaA = a.area || "";
+      const areaB = b.area || "";
+      if (areaA < areaB) return -1;
+      if (areaA > areaB) return 1;
+      return a.nome.localeCompare(b.nome);
     });
 
     return listaCompleta;
 
-  } catch (e) { 
-      return [{nome: "Erro ao carregar", area: "Erro", subarea: ""}]; 
+  } catch (e) {
+    return [{ nome: "Erro ao carregar", area: "Erro", subarea: "" }];
   }
 }
 
@@ -456,6 +594,7 @@ function salvarChecklistPreventiva(tecnico, maquina, tipo, respostas, tempo, ord
             for (let i = 1; i < dadosO.length; i++) {
                 // ATENÇÃO: Aqui mantemos a busca usando a string original "ordemID" pra garantir que a planilha bata
                 if (String(dadosO[i][0]).trim() === String(ordemID).trim()) {
+                    abaOrdens.getRange(i + 1, 4).setValue(new Date()).setNumberFormat("dd/MM/yyyy"); // Coluna D
                     abaOrdens.getRange(i + 1, 7).setValue("CONFIRMADO"); // Coluna G
                     break;
                 }
